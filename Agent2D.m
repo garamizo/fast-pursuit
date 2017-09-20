@@ -72,7 +72,7 @@ classdef Agent2D < handle
                 dist = 0;
             end
             
-            K = [0.5, 10, 1];
+            K = [0.5, 5, 1];
             dyaw = -min(max(K(1) * dist, -pi/2), pi/2) + atan2(dd(2), dd(1)); % desired yaw
             w = K(2) * asin(sin(dyaw - obj.yaw));
             if sqrt(sum((obj.plan(end,1:2) - obj.pos).^2, 2)) > 50e-2

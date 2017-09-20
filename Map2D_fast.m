@@ -210,14 +210,11 @@ classdef Map2D_fast < handle
         function [tr, free] = grow_tree(map, pos)
             % TODO Compare to Dijkstra Algorithm
             
+            fcost = triu(map.cost) + triu(map.cost)'; % full matrix with cost
+            
             nnodes = size(map.kpos, 1);
             parent = -ones(nnodes, 1);
             cumcost = Inf(nnodes, 1);
-            
-            % compute cost
-%             cumcost(1) = 0;
-            converge = false;
-            last_avg_cost = NaN;
             
             free = false;
             map.gd = map.gd_safe;
@@ -244,21 +241,18 @@ classdef Map2D_fast < handle
                 end
             end
             
+            converge = false;
             while ~converge
+                converge = true;
                 for k1 = 1 : nnodes
-                    for k2 = (k1+1) : nnodes
-                        if cumcost(k1) + map.cost(k1,k2) < cumcost(k2)
-                            cumcost(k2) = cumcost(k1) + map.cost(k1,k2);
+                    for k2 = 1 : nnodes
+                        if cumcost(k1) + fcost(k1,k2) < cumcost(k2) && k1 ~= k2
+                            cumcost(k2) = cumcost(k1) + fcost(k1,k2);
                             parent(k2) = k1;
-
-                        elseif cumcost(k2) + map.cost(k1,k2) < cumcost(k1)
-                            cumcost(k1) = cumcost(k2) + map.cost(k1,k2);
-                            parent(k1) = k2;
+                            converge = false;
                         end
                     end
                 end
-                converge = last_avg_cost == mean(cumcost(~isinf(cumcost)));
-                last_avg_cost = mean(cumcost(~isinf(cumcost)));
             end
 
             tr = struct('pos', [map.kpos; pos], 'cumcost', [cumcost; 0], 'parent', [parent; 0]);
@@ -287,24 +281,24 @@ classdef Map2D_fast < handle
                     plot([tr.pos(k,1), tr.pos(tr.parent(k),1)], ...
                         [tr.pos(k,2), tr.pos(tr.parent(k),2)], ':', 'color', color)
                     
-%                     if all( sqrt(sum((txtloc - tr.pos(k,1:2)).^2, 2)) > 3) && ...
-%                             tr.pos(k,1) > map.lims(1) + 1 && tr.pos(k,1) < map.lims(2) - 1 && ...
-%                             tr.pos(k,2) > map.lims(3) + 1 && tr.pos(k,2) < map.lims(4) - 1
+                    if all( sqrt(sum((txtloc - tr.pos(k,1:2)).^2, 2)) > 3) && ...
+                            tr.pos(k,1) > map.lims(1) + 1 && tr.pos(k,1) < map.lims(2) - 1 && ...
+                            tr.pos(k,2) > map.lims(3) + 1 && tr.pos(k,2) < map.lims(4) - 1
                         
                         pcount = -45;
                         spc = 0.8 * [cosd(pcount), sind(pcount)];
                         txtloc(end+1,:) = tr.pos(k,1:2);
-                        text(tr.pos(k,1)+spc(1), tr.pos(k,2)+spc(2), ...
-                            sprintf('%.1f', tr.cumcost(k)), 'FontSize', 11, 'Color', color)
+%                         text(tr.pos(k,1)+spc(1), tr.pos(k,2)+spc(2), ...
+%                             sprintf('%.1f', tr.cumcost(k)), 'FontSize', 11, 'Color', [0 0 0])
                         
                         txtloc2 = (tr.pos(k,:) + tr.pos(tr.parent(k),:))/2;
                         dist = sqrt(sum((tr.pos(k,:) - tr.pos(tr.parent(k),:)).^2));
-                        text(txtloc2(1), txtloc2(2), ...
-                            sprintf('%.1f', dist), 'FontSize', 10, 'Color', [0 0 0.7])
+%                         text(txtloc2(1), txtloc2(2), ...
+%                             sprintf('%.1f', dist), 'FontSize', 10, 'Color', [0 0 0.7])
                    
-%                     end
+                    end
                 end
-%                 text(tr.pos(k,1), tr.pos(k,2), ['  ' num2str(k)])
+                text(tr.pos(k,1), tr.pos(k,2), ['  ' num2str(k)])
             end
         end
         
@@ -315,17 +309,28 @@ classdef Map2D_fast < handle
         % kk: array of indexes backtracing to target
         % v0: departure speed
             
-            nnodes1 = size(tr.pos, 1);
-            mincost = Inf;
-            kend = 0;
-            dist = sqrt(sum((tr.pos - pos).^2, 2));
+            persistent kmin;
+            if isempty(kmin)
+                kmin = 1;
+            end
             
+            nnodes1 = size(tr.pos, 1);
+            cdist = tr.cumcost + sqrt(sum((tr.pos - pos).^2, 2));
+            
+            if ~collide(map, tr.pos(kmin,:), pos)
+                mincost = cdist(kmin);
+            else
+                mincost = Inf;
+            end
+
             for k = 1 : size(tr.pos, 1)
-                if dist(k) + tr.cumcost(k) < mincost && ~collide(map, tr.pos(k,:), pos)
-                    mincost = dist(k) + tr.cumcost(k);
-                    kend = k;
+                if cdist(k) < mincost && ~collide(map, tr.pos(k,:), pos)
+                    mincost = cdist(k);
+                    kmin = k;
                 end
             end
+            kend = kmin;
+            
             if kend > 0
                 vend = tr.pos(kend,:) - pos;
                 if abs(vend) > 1e-5

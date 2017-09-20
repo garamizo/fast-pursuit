@@ -3,9 +3,9 @@ sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 
 dt = 0.1;
-p = Agent2D('pos', [-3.7031   -0.8438], 'yaw', 0, 'vmax', 5, 'dt', dt, 'color', [0.3 0.3 1], ...
+p = Agent2D('pos', [-3.7031   -0.8438], 'yaw', 0, 'vmax', 5, 'wmax', 10, 'dt', dt, 'color', [0.3 0.3 1], ...
     'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [9.7031   -6.5625], 'yaw', 2, 'vmax', 5, 'dt', dt, 'color', [1 0.3 0.3], ...
+e = Agent2D('pos', [9.7031   -6.5625], 'yaw', 2, 'vmax', 5, 'wmax', 10, 'dt', dt, 'color', [1 0.3 0.3], ...
     'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 
 pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);
@@ -21,14 +21,6 @@ pts = [
 set_plan(e, [e.pos; pts], 100);
 
 data = zeros(3000,6);
-record = false;
-if record
-    v = VideoWriter('pursuit_0s2', 'Motion JPEG AVI');
-    v.Quality  = 100;
-    decim = 1;
-    v.FrameRate = decim/dt;
-    open(v)
-end
 
 % initial assessment
 [x, fval] = step(pl);
@@ -41,8 +33,6 @@ plot(map), hold on
 hh = plot(0, 0, '^');
 
 % close all
-time = zeros(3000);
-t0 = tic;
 for k = 1 : 3000
     tic
 
@@ -90,20 +80,9 @@ for k = 1 : 3000
     if sqrt(sum((e.pos - pl.gpos).^2)) < 1 || sqrt(sum((e.pos - p.pos).^2)) < 1
         break
     end
-    
-    data(k,:) = [p.pos, e.pos, xpur]; % log data
-    
+
     drawnow
     pause(dt - toc)
-    time(k) = toc(t0);
-    
-    if record
-        frame = getframe(gca);
-        writeVideo(v, frame);
-    end
 end
 
-if record
-    close(v)
-end
 
