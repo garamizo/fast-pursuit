@@ -33,8 +33,6 @@ plot(map), hold on
 hh = plot(0, 0, '^');
 
 % close all
-time = zeros(3000);
-t0 = tic;
 for k = 1 : 3000
     tic
 
@@ -85,7 +83,6 @@ for k = 1 : 3000
 
     drawnow
     pause(dt - toc)
-    time(k) = toc(t0);
 end
 
 

@@ -69,18 +69,26 @@ plot_tree(map, tr)
 % 2.7 ms for maze
 
 dt = 0.1;
-p = Agent2D('pos', [0.9868   -4.7368], 'vmax', 2, 'dt', dt, 'color', [0.3 0.3 1], ...
+p = Agent2D('pos', [-1.2124    1.8045], 'vmax', 6, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 2, 'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [-8.2613    1.4098], 'vmax', 1, 'dt', dt, 'color', [1 0.3 0.3], ...
+e = Agent2D('pos', [-2.5094    5.0188], 'vmax', 6, 'dt', dt, 'color', [1 0.3 0.3], ...
     'yaw', 0.5, 'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 
-plot(map)
-scatter(p.pos(end,1), p.pos(end,2), 400, [0.3 0.3 1], 'filled', 'MarkerFaceAlpha', 0.3)
-scatter(e.pos(end,1), e.pos(end,2), 400, [1 0.3 0.3], 'filled', 'MarkerFaceAlpha', 0.3)
-scatter(0.8177, -1.1842, 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3)
+% plot(map)
+% scatter(p.pos(end,1), p.pos(end,2), 400, [0.3 0.3 1], 'filled', 'MarkerFaceAlpha', 0.3)
+% scatter(e.pos(end,1), e.pos(end,2), 400, [1 0.3 0.3], 'filled', 'MarkerFaceAlpha', 0.3)
+% scatter(0.8177, -1.1842, 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3)
 
 pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [0.8177   -1.1842]);
-step(pl)
+pl.tp = grow_tree(map, pl.p.pos);
+pl.te = grow_trim_tree(pl, pl.tp, e.pos);
+
+figure
+plot(pl)
+% plot_tree(map, pl.tp)
+plot_tree(map, pl.te, [1 0.5 0.5])
+
+% step(pl)
 
 %%
 plot(map)
@@ -115,14 +123,14 @@ for k = 1 : size(pos,1)
 end
 fprintf('Execution time: %.2f ms\n', toc * 1000 / k)
 
-tp.cumcost = tp.cumcost / p.vmax;
-te.cumcost = te.cumcost / e.vmax;
-trout.cumcost = trout.cumcost / e.vmax;
+% tp.cumcost = tp.cumcost / p.vmax;
+% te.cumcost = te.cumcost / e.vmax;
+% trout.cumcost = trout.cumcost / e.vmax;
 
 % close all
-figure, plot_tree(map, tp, [0 0 0.8])
+figure, plot_tree(map, tr, [0 0 0.8])
 % figure, plot_tree(map, te, [0.8 0 0])
-figure, plot_tree(map, trout, [0.8 0 0])
+% figure, plot_tree(map, trout, [0.8 0 0])
 % hold on, plot_tree(map, trout2, [0 0 0.8])
 
 
@@ -139,9 +147,9 @@ for k = 1 : size(pos,1)
 end
 toc * 1000 / k
 
-% figure
-% plot_tree(map, tr)
-% quiver(pos(k,1), pos(k,2), v(1), v(2), 'linewidth', 2)
+figure
+plot_tree(map, tr)
+quiver(pos(k,1), pos(k,2), v(1), v(2), 'linewidth', 2)
 
 %% test speed of intercept search
 % 12 ms for maze
@@ -196,11 +204,10 @@ mapfile = 'maze';
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 
-
 dt = 0.1;
-p = Agent2D('pos', [-3.7031   -0.8438], 'yaw', 0, 'vmax', 6, 'dt', dt, 'color', [0.3 0.3 1], ...
+p = Agent2D('pos', [-3.7031   -0.8438], 'yaw', 0, 'vmax', 9, 'dt', dt, 'color', [0.3 0.3 1], ...
     'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [9.7031   -6.5625], 'yaw', 0, 'vmax', 3, 'dt', dt, 'color', [1 0.3 0.3], ...
+e = Agent2D('pos', [9.7031   -6.5625], 'yaw', 0, 'vmax', 9, 'dt', dt, 'color', [1 0.3 0.3], ...
     'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 
 pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);

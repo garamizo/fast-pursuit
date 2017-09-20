@@ -210,29 +210,11 @@ classdef Map2D_fast < handle
         function [tr, free] = grow_tree(map, pos)
             % TODO Compare to Dijkstra Algorithm
             
-            delay_time = 0.13/3;
-            record = false;
-            if record
-                v = VideoWriter('videos/grow_tree5', 'Motion JPEG AVI');
-                v.Quality  = 100;
-                decim = 1;
-                v.FrameRate = decim/delay_time;
-                open(v)
-            end
-            
-            cost = triu(map.cost) + triu(map.cost)';
+            fcost = triu(map.cost) + triu(map.cost)'; % full matrix with cost
             
             nnodes = size(map.kpos, 1);
             parent = -ones(nnodes, 1);
             cumcost = Inf(nnodes, 1);
-            
-%             create all branches
-            if record
-                for k = 1 : nnodes
-                    link = [map.kpos(k,:); NaN, NaN];
-                    hh(k) = plot(link(:,1), link(:,2), 'b:o', 'MarkerSize', 2, 'MarkerFaceColor', [0.8 0.8 0.8], 'MarkerEdgeColor', 'none');
-                end
-            end
             
             free = false;
             map.gd = map.gd_safe;
@@ -240,17 +222,6 @@ classdef Map2D_fast < handle
                 if ~collide(map, pos, map.kpos(k,:))
                     cumcost(k) = sqrt(sum((pos - map.kpos(k,:)).^2));
                     parent(k) = nnodes+1;
-                    
-
-                    if record
-                        link = [pos; map.kpos(k,:)];
-                        set(hh(k), 'XData', link(:,1), 'YData', link(:,2), 'MarkerFaceColor', 'k');
-                        pause(delay_time)
-                        drawnow
-                        frame = getframe(gca);
-                        writeVideo(v, frame);
-                    end
-                    
                     free = true;
                 end
             end
@@ -261,16 +232,6 @@ classdef Map2D_fast < handle
                     if ~collide(map, pos, map.kpos(k,:))
                         cumcost(k) = sqrt(sum((pos - map.kpos(k,:)).^2));
                         parent(k) = nnodes+1;
-                        
-                        
-                        if record
-                            link = [pos; map.kpos(k,:)];
-                            set(hh(k), 'XData', link(:,1), 'YData', link(:,2), 'MarkerFaceColor', 'k');
-                            pause(delay_time)
-                            frame = getframe(gca);
-                            writeVideo(v, frame);
-                        end
-                    
                         free = true;
                     end
                 end
@@ -285,34 +246,16 @@ classdef Map2D_fast < handle
                 converge = true;
                 for k1 = 1 : nnodes
                     for k2 = 1 : nnodes
-                        if cumcost(k1) + cost(k1,k2) < cumcost(k2) && k1 ~= k2
-                            cumcost(k2) = cumcost(k1) + cost(k1,k2);
+                        if cumcost(k1) + fcost(k1,k2) < cumcost(k2) && k1 ~= k2
+                            cumcost(k2) = cumcost(k1) + fcost(k1,k2);
                             parent(k2) = k1;
                             converge = false;
-                            
-                            if record
-                                link = map.kpos([k1, k2],:);
-                                set(hh(k2), 'XData', link(:,1), 'YData', link(:,2), 'MarkerFaceColor', 'k');
-                                pause(delay_time)
-                                frame = getframe(gca);
-                                writeVideo(v, frame);
-                            end
                         end
                     end
                 end
             end
 
             tr = struct('pos', [map.kpos; pos], 'cumcost', [cumcost; 0], 'parent', [parent; 0]);
-            
-            if record
-%                 close all
-%                 plot_tree(map, tr, [0.3 0.3 1])
-                frame = getframe(gca);
-                for k = 1 : 5
-                    writeVideo(v, frame);
-                end
-                close(v)
-            end
         end
 
         function plot_tree(map, tr, color)
@@ -345,17 +288,17 @@ classdef Map2D_fast < handle
                         pcount = -45;
                         spc = 0.8 * [cosd(pcount), sind(pcount)];
                         txtloc(end+1,:) = tr.pos(k,1:2);
-                        text(tr.pos(k,1)+spc(1), tr.pos(k,2)+spc(2), ...
-                            sprintf('%.1f', tr.cumcost(k)), 'FontSize', 11, 'Color', [0 0 0])
+%                         text(tr.pos(k,1)+spc(1), tr.pos(k,2)+spc(2), ...
+%                             sprintf('%.1f', tr.cumcost(k)), 'FontSize', 11, 'Color', [0 0 0])
                         
                         txtloc2 = (tr.pos(k,:) + tr.pos(tr.parent(k),:))/2;
                         dist = sqrt(sum((tr.pos(k,:) - tr.pos(tr.parent(k),:)).^2));
-                        text(txtloc2(1), txtloc2(2), ...
-                            sprintf('%.1f', dist), 'FontSize', 10, 'Color', [0 0 0.7])
+%                         text(txtloc2(1), txtloc2(2), ...
+%                             sprintf('%.1f', dist), 'FontSize', 10, 'Color', [0 0 0.7])
                    
                     end
                 end
-%                 text(tr.pos(k,1), tr.pos(k,2), ['  ' num2str(k)])
+                text(tr.pos(k,1), tr.pos(k,2), ['  ' num2str(k)])
             end
         end
         

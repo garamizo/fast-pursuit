@@ -61,31 +61,10 @@ classdef Planner2D_fast < handle
         
         function [trout, free] = grow_trim_tree(obj, trp, pos)
             
-            delay_time = 0.13/1.5;
-            record = false;
-            if record
-                v = VideoWriter('videos/tmp', 'Motion JPEG AVI');
-                v.Quality  = 100;
-                decim = 1;
-                v.FrameRate = decim/delay_time;
-                open(v)
-                map = obj.m;
-            end
-            
             cost = triu(obj.m.cost) + triu(obj.m.cost)';
             
             nnodes = size(obj.m.kpos, 1);
             parent = -ones(nnodes,1);
-            
-            % create all branches
-            if record
-                for k = 1 : nnodes
-                    link = [map.kpos(k,:); NaN, NaN];
-                    hh(k) = plot(link(:,1), link(:,2), 'r:o', 'MarkerSize', 2, 'MarkerFaceColor', [0.8 0.8 0.8], 'MarkerEdgeColor', 'none');
-                    link = [trp.pos(k,:); trp.pos(trp.parent(k),:)];
-                    hp(k) = plot(link(:,1), link(:,2), 'b:o', 'MarkerSize', 2, 'MarkerFaceColor', [0 0 0], 'MarkerEdgeColor', 'none');
-                end
-            end
             
             % compute cost
             cumcost = sqrt(sum((pos - obj.m.kpos).^2, 2));
@@ -93,14 +72,20 @@ classdef Planner2D_fast < handle
             
             free = false;
             obj.m.gd = obj.m.gd_safe;
+            
+            for rep = 1 : 2
             for k = 1 : nnodes
                 if cumcostp(k) > cumcost(k) && ~collide(obj.m, pos, obj.m.kpos(k,:))
 
-                    if trp.parent(k) == nnodes+1
-                        vp = trp.pos(k,:) - trp.pos(nnodes+1,:);
-                        ve = trp.pos(k,:) - pos;
-
-                        if acosd(vp * ve' / sqrt(vp*vp' * (ve*ve'))) < 30
+                    if cumcostp(trp.parent(k)) < cumcost(k)
+                        ve = obj.m.kpos(k,:) - pos;
+                        d = sqrt(ve * ve');
+                        ve = ve / d;
+                        vp = obj.m.kpos(k,:) - trp.pos(trp.parent(k),:);
+                        b = d + vp * ve';
+                        a = abs(vp * [ve(2); -ve(1)]) * obj.e.vmax / obj.p.vmax;
+ 
+                        if acosd(vp * ve'/sqrt(vp*vp')) < 90 && (0 + b) > (cumcostp(trp.parent(k)) + a)
                             cumcost(k) = Inf;
                             continue
                         end
@@ -108,21 +93,16 @@ classdef Planner2D_fast < handle
 
                     parent(k) = nnodes+1;
                     free = true;
-                    
-                    if record
-                        link = [pos; map.kpos(k,:)];
-                        set(hh(k), 'XData', link(:,1), 'YData', link(:,2), 'MarkerFaceColor', 'k');
-                        link = NaN(2);
-                        set(hp(k), 'LineStyle', 'none', 'MarkerFaceColor', 'k');
-                        pause(delay_time)
-                        frame = getframe(gca);
-                        writeVideo(v, frame);
-                    end
                 else
                     cumcost(k) = Inf;
                 end
             end
             obj.m.gd = obj.m.gd_tight;
+            
+            if free == true
+                break
+            end
+            end
             
             if free == false
                 trout = struct('pos', [obj.m.kpos; pos], 'cumcost', [Inf(nnodes,1); 0], 'parent', [zeros(nnodes,1); 0]);
@@ -137,61 +117,39 @@ classdef Planner2D_fast < handle
                         ncost = cumcost(k1) + cost(k1,k2);
                         if ncost < cumcost(k2) && cumcostp(k2) > ncost && k1 ~= k2
                             
-                            
-                            
-%                             if cumcostp(trp.parent(k2)) < cumcost(k1)
-%                                 vp = trp.pos(k2,:) - trp.pos(trp.parent(k2),:);
-%                                 ve = trp.pos(k2,:) - trp.pos(k1,:);
-%                             
-%                                 if acosd(vp * ve' / sqrt(vp*vp' * (ve*ve'))) < 30
-%                                     continue
-%                                 end
-%                             end
+                            if cumcostp(trp.parent(k2)) < cumcost(k2)
+                                ve = obj.m.kpos(k2,:) - obj.m.kpos(k1,:);
+                                d = sqrt(ve * ve');
+                                ve = ve / d;
+                                vp = obj.m.kpos(k2,:) - trp.pos(trp.parent(k2),:);
+                                b = d - vp * ve';
+                                a = abs(vp * [ve(2); -ve(1)]) * obj.e.vmax / obj.p.vmax;
+
+                                if b > 0 && acosd(vp * ve'/sqrt(vp*vp')) < 90 && (cumcost(k1) + b) > (cumcostp(trp.parent(k2)) + a)
+                                    continue
+                                end
+                            end
+
                             cumcost(k2) = ncost;
                             parent(k2) = k1;
                             converge = false;
-                            
-                            if record
-                                link = map.kpos([k1, k2],:);
-                                set(hh(k2), 'XData', link(:,1), 'YData', link(:,2), 'MarkerFaceColor', 'k');
-                                set(hp(k2), 'LineStyle', 'none', 'MarkerFaceColor', 'k');
-                                pause(delay_time)
-                                frame = getframe(gca);
-                                writeVideo(v, frame);
-                            end
+
                         end
                     end
                 end
             end
 
             trout = struct('pos', [obj.m.kpos; pos], 'cumcost', [cumcost; 0], 'parent', [parent; 0]);
-            
-            if record
-                close(v)
-            end
         end
         
         function [x, fval] = step(obj)
-            
-            delay_time = 0.25;
-            record = false;
-            if record
-                v = VideoWriter('videos/search3b', 'Motion JPEG AVI');
-                v.Quality  = 100;
-                decim = 1;
-                v.FrameRate = decim/delay_time;
-                open(v)
-            end
 
             % create trees
             [tr, free] = grow_tree(obj.m, obj.p.pos);
             if free
                 obj.tp = tr;
-            else
-                tr
             end
             
-%             [tr, free] = grow_tree(obj.m, obj.e.pos);
             [tr, free] = grow_trim_tree(obj, obj.tp, obj.e.pos);
             if free || ~free
                 obj.te = tr;
@@ -209,14 +167,7 @@ classdef Planner2D_fast < handle
                 fval = 0;
                 exitflag = 1;
                 pos0 = [NaN, NaN];
-            
-%             elseif find_path(obj.m, obj.tp, obj.gpos)/obj.p.vmax > find_path(obj.m, obj.te, obj.gpos)/obj.e.vmax
-%                 fprintf('run home!\n')
-%                 pos = obj.gpos;
-%                 fval = 0;
-%                 exitflag = 1;
-%                 pos0 = [NaN, NaN];
-                
+
             else
                 % search N random points
                 N = 5;
@@ -226,20 +177,6 @@ classdef Planner2D_fast < handle
                 exitflag = zeros(size(pos0,1), 1);
                 for k = 1 : size(pos0,1)
                     [pos(k,:), fval(k), exitflag(k)] = search_intercept(obj, pos0(k,:));
-                    if record
-                        link = [pos0(k,:); pos(k,:)];
-                        if exitflag(k) > 0
-                            plot(link(:,1), link(:,2), '.-', 'color', [0.8 0.8 0.6], 'markersize', 15)
-                            scatter(link(2,1), link(2,2), 200, [1, 0.5, 0], 'linewidth', 1.5);
-                        else
-                            plot(link(1,1), link(1,2), '.', 'color', [0.8 0.8 0.6], 'markersize', 15)
-                        end
-                        drawnow
-                        pause(delay_time)
-                        
-                        frame = getframe(gca);
-                        writeVideo(v, frame);
-                    end
                 end
             end
             
@@ -283,7 +220,7 @@ classdef Planner2D_fast < handle
             for k = 1 : size(unassignedTracks,1)
                 obj.tracks(unassignedTracks(k)).count = obj.tracks(unassignedTracks(k)).count + 1;
             end
-            rows = [obj.tracks.count] <= 2;
+            rows = [obj.tracks.count] <= 1;
             obj.tracks = obj.tracks(rows);
             for k = 1 : size(unassignedDetections,1)
                 obj.tracks(end+1) = struct('pos', pos(unassignedDetections(k),:), ...
@@ -295,14 +232,6 @@ classdef Planner2D_fast < handle
             fval = cat(1, obj.tracks(:).cost);
             
             x = obj.x0;
-            
-            if record
-                frame = getframe(gca);
-                for k = 1 : 5
-                    writeVideo(v, frame);
-                end
-                close(v)
-            end
         end
         
         function [f, gradf] = objfungrad(obj, x)
@@ -318,15 +247,6 @@ classdef Planner2D_fast < handle
             c = -(cp/obj.p.vmax - ce/obj.e.vmax);
             DCeq = [];
             DC = (vp/obj.p.vmax - ve/obj.e.vmax)';
-            
-%             if obj.e.vmax > obj.p.vmax && vp * ve' > 0
-%                 c = NaN;
-%             end
-
-%             c = [];
-%             ceq = (cp - ce);
-%             DC = [];
-%             DCeq = -(vp - ve)';
         end
         
         function [pos, fval, exitflag, count] = search_intercept(obj, pos0)
@@ -339,10 +259,6 @@ classdef Planner2D_fast < handle
                 count = [0, 0];
                 return
             end
-
-%             [mincost, kend, vend] = find_path(obj.m, obj.tg, pos0)
-%             [f, gradf] = objfungrad(obj, pos0)
-%             [c, ceq, DC, DCeq] = confungrad(obj, pos0)
             
             [pos, fval, exitflag, output] = fmincon(@(x) objfungrad(obj,x), pos0,[],[],[],[],obj.m.lims([1 3]), obj.m.lims([2 4]), @(x)confungrad(obj,x), obj.opt);
             count = [output.funcCount, output.iterations];
@@ -360,20 +276,6 @@ classdef Planner2D_fast < handle
                 if acosd(vp * ve') < 90 && (obj.te.cumcost(ke) + b)/obj.e.vmax > (obj.tp.cumcost(kp) + a)/obj.p.vmax
                     exitflag = 0;
                 end
-                
-%                 obj.te.pos(ke,:)
-%                 obj.tp.pos(kp,:)
-%                 
-%                 obj.te.cumcost(ke)
-%                 obj.tp.cumcost(kp)
-%                 
-%                 if ce/obj.e.vmax > cp/obj.p.vmax
-%                     exitflag = 0;
-%                 end
-                
-%                 if acosd(vp * ve') < 30
-%                     exitflag = 0;
-%                 end
             end
         end
         
@@ -416,9 +318,11 @@ classdef Planner2D_fast < handle
             plot(obj.e)
 %             set(obj.h(1), 'XData', obj.x0(:,1), 'YData', obj.x0(:,2))
             
-            pp = cat(3, obj.etc.pos, obj.etc.pos0, NaN(size(obj.etc.pos)));
-            pp = reshape(permute(pp, [3 1 2]), [3*size(obj.etc.pos,1), 2, 1]);
-            set(obj.h(1), 'XData', pp(:,1), 'YData', pp(:,2))
+            if ~isempty(obj.etc)
+                pp = cat(3, obj.etc.pos, obj.etc.pos0, NaN(size(obj.etc.pos)));
+                pp = reshape(permute(pp, [3 1 2]), [3*size(obj.etc.pos,1), 2, 1]);
+                set(obj.h(1), 'XData', pp(:,1), 'YData', pp(:,2))
+            end
             
             
             sol = cat(1, obj.tracks(:).pos);
