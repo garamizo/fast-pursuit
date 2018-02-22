@@ -236,7 +236,7 @@ classdef Agent2D < handle
                 if max(abs(volt)) > 5
                     volt = volt * 5 / max(abs(volt));
                 end
-                fprintf(obj.hb, '%d %d\n', (round(volt*255/5)));
+                fprintf(obj.hb, '%dr %dr\n', (round(volt*100/5)));
             end
         end
         
