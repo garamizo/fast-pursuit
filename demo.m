@@ -4,6 +4,13 @@ t = tcpip('141.219.123.228', 80);
 %%
 fopen(t)
 
+c = natnet();
+c.HostIP = '141.219.208.59';
+c.ClientIP = '141.219.208.59';
+c.connect()
+
+% c.disconnect()
+
 %%
 fprintf(t, '75r 90r 5')
 
@@ -23,7 +30,7 @@ map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_cons
 
 dt = 0.1;
 p = Agent2D('pos', [-3.7031   -0.8438], 'yaw', 0, 'vmax', 5, 'wmax', 10, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'hb', t, 'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+    'hb', t, 'hc', c, 'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 e = Agent2D('pos', [9.7031   -6.5625], 'yaw', 2, 'vmax', 5, 'wmax', 10, 'dt', dt, 'color', [1 0.3 0.3], ...
     'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 

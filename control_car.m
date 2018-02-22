@@ -21,8 +21,8 @@ fprintf(p, '%d %d\n', [0 0]);
 
 %%
 c = natnet();
-c.HostIP = '141.219.216.25';
-c.ClientIP = '141.219.216.25';
+c.HostIP = '141.219.208.59';
+c.ClientIP = '141.219.208.59';
 pause(0.5);
 c.connect()
 
