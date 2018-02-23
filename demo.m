@@ -1,18 +1,53 @@
 clear
-t = tcpip('141.219.123.228', 80);
+t = tcpip('141.219.125.154', 80);
 
 %%
 fopen(t)
 
 c = natnet();
-c.HostIP = '141.219.208.59';
-c.ClientIP = '141.219.208.59';
+c.HostIP = '141.219.122.21';
+c.ClientIP = '141.219.122.21';
 c.connect()
 
 % c.disconnect()
+cushion: 23.8
+
+% stage dimension: 95.8*240.5
+0, 0
+0, 95.8
+95.8, 240.5
+0, 240.5
+0, 0
+
+% first cushion closest to window:
+% 23.8*23.8 lower right corner align with the black tape
+67-23.8, 36.7
+67, 36.7
+67, 36.7+23.8
+67-23.8, 36.7+23.8
+67-23.8, 36.7
+
+% force plate hole: 23.8 * 26.8
+13.2, 107
+13.2+26.8, 107
+13.2+26.8, 107+23.8
+13.2, 107+23.8
+13.2, 107
+
+% rectangular cushion: 17.8*4
+% door end aligns with the second crew from door side
+24, 31.4+107+23.8
+24+4, 31.4+107+23.8
+24+4, 31.4+107+23.8+17.8
+24, 31.4+107+23.8+17.8
+24, 31.4+107+23.8
+
+% last cushion: 23.8*23.8
+
+
 
 %%
-fprintf(t, '75r 90r 5')
+fprintf(t, '0r 0r')
 
 if (fgetl(t) > 0)
     fgetl(t)
