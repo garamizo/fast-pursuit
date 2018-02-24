@@ -232,61 +232,21 @@ contour(lims(1):0.1:lims(2), lims(3):0.1:lims(4), dist, 2.5:2.5:50, 'showtext', 
 set(gca,'Visible','off')
 
 %% test speed of pursuit
+close all
 
 mapfile = 'lab_map';
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 
 dt = 0.1;
-p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
+p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 0.4, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 2, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 0.5, 'dt', dt, 'color', [1 0.3 0.3], ...
+e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 0.4, 'dt', dt, 'color', [1 0.3 0.3], ...
     'yaw', 0.5, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 
 pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);
 pl.tp = grow_tree(map, p.pos);
-pl.te = grow_trim_tree(pl, pl.tp, e.pos);
-
-% [~, ~, ~, path] = find_path(map, pl.te, pl.gpos);
-% path = [e.pos; pp; pl.gpos];
-% set_plan(e, path, 90);
-% pts = [
-%     9.7811   -5.5977
-%     9.0207   -1.4577
-%     4.3203   -7.6968
-%    -2.3848   -9.0379
-%    -7.9147   -8.9796
-%   -11.8548   -7.2886
-%   -11.9240   -6.0641
-%   -10.3341   -0.6997
-%    -6.6014    2.2741
-%    -1.6935    2.3907
-%    -0.1037   -0.6414
-%     0.8641   -0.5831 ];
-% pts = [
-%     8.9531   -0.6563
-%     3.7969   -7.4063
-%    -2.5781   -7.5000
-%    -3.1406   -7.1250
-%    -3.1406   -6.2813
-%     1.5469   -4.7813
-%     1.6406   -0.8438 ];
-% set_plan(e, [e.pos; pts], 100);
-% 
-% % VIP position
-% pts = [
-%    -1.3594   -2.1563
-%    -3.1406   -5.2500
-%    -2.9531   -3.0938
-%    -1.3594    0.4687
-%    -0.9844    2.4375
-%     4.9219    3.0000
-%     9.5156    3.0000
-%    11.2031    6.2812 ];
-% s = [0; cumsum(sqrt(sum(diff(pts).^2,2)))];
-% ss = 0 : 1 : s(end);
-% GPOS = interp1(s, pts, ss);
-% K = linspace(0, 500, size(GPOS,1));
+pl.te = grow_tree(map, e.pos);
 
 data = zeros(3000,6);
 
@@ -318,10 +278,10 @@ t0 = tic;
 for k = 1 : 3000
     tic
 
-    ppix = get(0, 'PointerLocation'); % pointer absolute location
-    mpix = get(gcf, 'position').*[1 1 0 0] + get(gca, 'position');
-    ppos = [interp1([mpix(1), mpix(1)+mpix(3)], map.lims(1:2), ppix(1), 'linear', 'extrap'), ...
-        interp1([mpix(2), mpix(2)+mpix(4)], map.lims(3:4), ppix(2), 'linear', 'extrap')];
+    ppix = get(0, 'PointerLocation'); % pointer absolute location (X, Y) [px]
+    mpix = get(gcf, 'position').*[1 1 0 0] + get(gca, 'Position');
+    ppos = [interp1([mpix(1), mpix(1)+mpix(2)-30], map.lims(1:2), ppix(1), 'linear', 'extrap'), ...
+        interp1([mpix(3)+100, mpix(3)+mpix(4)-50], map.lims(3:4), ppix(2), 'linear', 'extrap')];
     set(hh, 'XData', ppos(1), 'YData', ppos(2))
     set_plan(e, [e.pos; ppos], 100);
     

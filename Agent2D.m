@@ -87,52 +87,6 @@ classdef Agent2D < handle
             DV = K(3) * w;
         end
         
-        
-        function [u, DV, dyaw] = line_follow2(obj)
-            
-            % find closest point to plan
-            mindist = Inf;
-            for k = 1 : size(obj.plan, 1)-1
-                d = obj.plan(k+1,1:2) - obj.plan(k,1:2);
-                n = [-d(2), d(1)];
-                n = n / sqrt(n * n');
-                
-                alf = [d', n'] \ (obj.pos - obj.plan(k,1:2))';
-                if alf(1) > 0 && alf(1) < 1 && abs(alf(2)) < mindist
-                    mindist = abs(alf(2));
-                    y = alf(2);
-                    dd = d;
-                end 
-            end
-            
-            if isinf(mindist)
-                [y, idx] = min( sum( (obj.pos - obj.plan(:,1:2)).^2, 2 ) );
-                if idx ~= size(obj.plan,1)
-                    pts = [obj.pos; obj.plan(idx+[0,1],1:2); obj.pos];
-                    A = sum(pts(1:end-1,1).*pts(2:end,2) - pts(2:end,1).*pts(1:end-1,2));
-                    y = sign(A) * y;
-                    dd = obj.plan(idx+1,1:2) - obj.plan(idx,1:2);
-                else % past destination
-                    dd = obj.plan(end,1:2) - obj.pos;
-                    y = 0;
-
-                end
-            end
-            
-            K = [2, 3, 1];
-            dyaw = -min(max(K(1) * y, -pi/2), pi/2) + atan2(dd(2), dd(1));
-            w = K(2) * (dyaw - obj.yaw);
-            if sqrt(sum((obj.plan(end,1:2) - obj.pos).^2, 2)) > obj.dist_tol
-                v = obj.vop;
-            else
-                v = 0;
-            end
-            
-            u = [v, w];
-            DV = K(3) * w;
-        end
-        
-        
         function u = pctrl(obj, tpos)
             % u: [linear vel; angular vel] m/s, rad/s
             
@@ -179,34 +133,6 @@ classdef Agent2D < handle
 
             pos0 = obj.pos;
             obj.correct()
-            
-%             % compute repulsive force to avoid collision
-%             [mindist, rf] = obj.map.collide(obj.pos);
-%             mindist = max(mindist, 0);
-%             rf = 1e-3 * rf / abs(1e-3 + mindist.^3);
-%             
-%             A = 0.3/(1/0.1 - 1); % at 0.3 m, weight is 0.1
-%             weight = A/(mindist + A);
-% %             weight = 0;
-%             tpos = weight * (obj.pos + 5*rf * obj.vmax * obj.dt) + (1-weight) * tpos;
-%             
-%             obj.rvector = rf;
-
-%             % retrieve from plan
-%             if nargin == 1
-%                 obj.t = obj.t + obj.dt;
-%                 if size(obj.plan, 1) >= 2 && obj.t < obj.plan(end,3)
-%                     
-%                     tpos = interp1(obj.plan(:,3), obj.plan(:,1:2), obj.t);
-%                 else
-% %                     warning('no pre-assigned plan')
-%                     tpos = obj.pos;
-%                 end
-%             else
-%                 tpos = varargin{1};
-%             end
-%             
-%             obj.etc.ptarget = tpos;
             
             % differential drive control
 %             u = pctrl(obj, tpos);
