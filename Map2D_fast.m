@@ -33,7 +33,7 @@ classdef Map2D_fast < handle
             obj.gd_tight = obj.gd; % save temporarily
             
             % create nodes
-            [obj.kpos, obj.gd_safe] = gen_kpos(obj, 0.4);
+            [obj.kpos, obj.gd_safe] = gen_kpos(obj, 0.2);
             
             % create cost
             obj.gd = obj.gd_safe;
@@ -352,6 +352,10 @@ classdef Map2D_fast < handle
                 v0 = wpos(2,:) - wpos(1,:);
                 v0 = v0 / sqrt(v0 * v0');
             end
+            
+%             if kmin > 17
+%                 error('???')
+%             end
         end
         
 

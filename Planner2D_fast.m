@@ -25,6 +25,9 @@ classdef Planner2D_fast < handle
         
         problem
         ms
+        
+        ppdist_thresh = 0.5 % distance threshold to engage pure pursuit
+        dist_tol = 0.1 % length resolution
     end
     
     methods
@@ -160,7 +163,7 @@ classdef Planner2D_fast < handle
                 obj.tg = tr;
             end
             
-            ppdist = 2; % pursuer-evader distance to engage pure pursuit
+            ppdist = obj.ppdist_thresh; % pursuer-evader distance to engage pure pursuit
             if sqrt(sum((obj.p.pos - obj.e.pos).^2)) < ppdist && ~collide(obj.m, obj.p.pos, obj.e.pos)
                 fprintf('pure pursuit!\n')
                 pos = obj.e.pos;
@@ -190,7 +193,7 @@ classdef Planner2D_fast < handle
             for k1 = 1 : size(pos,1)
                 for k2 = k1+1 : size(pos,1)
                     dist = sqrt(sum((pos(k1,:) - pos(k2,:)).^2,2));
-                    if dist < 1
+                    if dist < obj.dist_tol
                         if fval(k1) < fval(k2)
                             parent(k2) = k1;
                         else

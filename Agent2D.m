@@ -20,6 +20,8 @@ classdef Agent2D < handle
         plan
         t
         vop
+        
+        dist_tol = 0.1
     end
     
     methods
@@ -75,7 +77,7 @@ classdef Agent2D < handle
             K = [0.5, 5, 1];
             dyaw = -min(max(K(1) * dist, -pi/2), pi/2) + atan2(dd(2), dd(1)); % desired yaw
             w = K(2) * asin(sin(dyaw - obj.yaw));
-            if sqrt(sum((obj.plan(end,1:2) - obj.pos).^2, 2)) > 50e-2
+            if sqrt(sum((obj.plan(end,1:2) - obj.pos).^2, 2)) > obj.dist_tol
                 v = max(obj.vop - 0.01*abs(w), 0);
             else
                 v = 0;
@@ -120,7 +122,7 @@ classdef Agent2D < handle
             K = [2, 3, 1];
             dyaw = -min(max(K(1) * y, -pi/2), pi/2) + atan2(dd(2), dd(1));
             w = K(2) * (dyaw - obj.yaw);
-            if sqrt(sum((obj.plan(end,1:2) - obj.pos).^2, 2)) > 50e-2
+            if sqrt(sum((obj.plan(end,1:2) - obj.pos).^2, 2)) > obj.dist_tol
                 v = obj.vop;
             else
                 v = 0;

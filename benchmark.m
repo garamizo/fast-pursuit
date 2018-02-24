@@ -1,5 +1,6 @@
 %% import map from pdetool
-% export geometry description
+% export geometry description (on PDE, Draw > Export Geometry
+% Description...)
 
 valid = all(gd(1,:) == 2 | gd(1,:) == 3);
 if ~valid
@@ -19,17 +20,50 @@ x_constraints = [-15, 15];
 y_constraints = [-10, 10];
 num = size(gd, 2);
 
-mapfile = 'maze2';
+mapfile = 'test_map';
+save(fullfile('maps', mapfile), 'output', 'x_constraints', 'y_constraints', 'num')
+
+%% OR create struct by hand
+% mocap z -> map y
+% mocap x -> map -x
+R = Rz(pi) * Rx(pi/2); % to map
+
+% place a marker in each corner of each obstacle and save it as a body
+% record the setup and export body markers
+m = Mocap('C:\Users\hirolab\Documents\Optitrack\pursuit\gen_map\Take 2018-02-23 07.38.35 PM.csv');
+num = length(m.BodyName);
+
+clear output
+for k = 1 : num
+    fprintf('Detected body [%s]\n', m.BodyName{k})
+    b = m.body(m.BodyName{k});
+    output{k} = [nanmean(b.marker(1).trans)
+                    nanmean(b.marker(2).trans)
+                    nanmean(b.marker(3).trans)
+                    nanmean(b.marker(4).trans) ] * R' * [1, 0; 0, 1; 0, 0];
+                
+    % fix order
+    p0 = mean(output{k});
+    pp = output{k} - p0;
+    th = atan2(pp(:,2), pp(:,1));
+    [~, order] = sort(th);
+    output{k} = output{k}(order([1:end, 1]),:);
+end
+
+x_constraints = [-2.6266, 3.4542]; % fill in manually
+y_constraints = [-1.0266, 1.3198];
+
+mapfile = 'lab_map';
 save(fullfile('maps', mapfile), 'output', 'x_constraints', 'y_constraints', 'num')
 
 %% load map
 
 % mapfile = 'sample_block';
-mapfile = 'maze';
+mapfile = 'lab_map';
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 
-% plot(map)
+plot(map)
 
 %% test speed of collide function
 % 0.0125 ms for maze
@@ -69,10 +103,10 @@ plot_tree(map, tr)
 % 2.7 ms for maze
 
 dt = 0.1;
-p = Agent2D('pos', [-1.2124    1.8045], 'vmax', 6, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'yaw', 2, 'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [-2.5094    5.0188], 'vmax', 6, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'yaw', 0.5, 'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 1, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 2, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 1, 'dt', dt, 'color', [1 0.3 0.3], ...
+    'yaw', 0.5, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 
 % plot(map)
 % scatter(p.pos(end,1), p.pos(end,2), 400, [0.3 0.3 1], 'filled', 'MarkerFaceAlpha', 0.3)
@@ -154,18 +188,17 @@ quiver(pos(k,1), pos(k,2), v(1), v(2), 'linewidth', 2)
 %% test speed of intercept search
 % 12 ms for maze
 
-mapfile = 'maze';
+mapfile = 'lab_map';
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 
 dt = 0.1;
-p = Agent2D('pos', [-3, -1], 'yaw', -1.7, 'vmax', 1, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [0, -8], 'yaw', 3, 'vmax', 2, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 1, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 2, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 1, 'dt', dt, 'color', [1 0.3 0.3], ...
+    'yaw', 0.5, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 
-k = 30;
-lims = [-7.5609    9.3837, -9.3077    1.9886];
+lims = [-2    2, -2    2];
 x0 = rand(100,2).*[map.lims(2)-map.lims(1), map.lims(4)-map.lims(3)] + map.lims([1 3]);
 
 pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248], 'x0', x0(:,:));
@@ -200,15 +233,15 @@ set(gca,'Visible','off')
 
 %% test speed of pursuit
 
-mapfile = 'maze';
+mapfile = 'lab_map';
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 
 dt = 0.1;
-p = Agent2D('pos', [-3.7031   -0.8438], 'yaw', 0, 'vmax', 9, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [9.7031   -6.5625], 'yaw', 0, 'vmax', 9, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 2, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 0.5, 'dt', dt, 'color', [1 0.3 0.3], ...
+    'yaw', 0.5, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 
 pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);
 pl.tp = grow_tree(map, p.pos);
@@ -230,30 +263,30 @@ pl.te = grow_trim_tree(pl, pl.tp, e.pos);
 %    -1.6935    2.3907
 %    -0.1037   -0.6414
 %     0.8641   -0.5831 ];
-pts = [
-    8.9531   -0.6563
-    3.7969   -7.4063
-   -2.5781   -7.5000
-   -3.1406   -7.1250
-   -3.1406   -6.2813
-    1.5469   -4.7813
-    1.6406   -0.8438 ];
-set_plan(e, [e.pos; pts], 100);
-
-% VIP position
-pts = [
-   -1.3594   -2.1563
-   -3.1406   -5.2500
-   -2.9531   -3.0938
-   -1.3594    0.4687
-   -0.9844    2.4375
-    4.9219    3.0000
-    9.5156    3.0000
-   11.2031    6.2812 ];
-s = [0; cumsum(sqrt(sum(diff(pts).^2,2)))];
-ss = 0 : 1 : s(end);
-GPOS = interp1(s, pts, ss);
-K = linspace(0, 500, size(GPOS,1));
+% pts = [
+%     8.9531   -0.6563
+%     3.7969   -7.4063
+%    -2.5781   -7.5000
+%    -3.1406   -7.1250
+%    -3.1406   -6.2813
+%     1.5469   -4.7813
+%     1.6406   -0.8438 ];
+% set_plan(e, [e.pos; pts], 100);
+% 
+% % VIP position
+% pts = [
+%    -1.3594   -2.1563
+%    -3.1406   -5.2500
+%    -2.9531   -3.0938
+%    -1.3594    0.4687
+%    -0.9844    2.4375
+%     4.9219    3.0000
+%     9.5156    3.0000
+%    11.2031    6.2812 ];
+% s = [0; cumsum(sqrt(sum(diff(pts).^2,2)))];
+% ss = 0 : 1 : s(end);
+% GPOS = interp1(s, pts, ss);
+% K = linspace(0, 500, size(GPOS,1));
 
 data = zeros(3000,6);
 
@@ -292,7 +325,7 @@ for k = 1 : 3000
     set(hh, 'XData', ppos(1), 'YData', ppos(2))
     set_plan(e, [e.pos; ppos], 100);
     
-    if sqrt(sum((e.pos - p.pos).^2)) < 2
+    if sqrt(sum((e.pos - p.pos).^2)) < 0.3 % pure pursuit
         set_plan(p, [p.pos; e.pos], 100);
         xpur = e.pos;
         
@@ -330,7 +363,7 @@ for k = 1 : 3000
     plot(p)
     plot(e)
     
-    if sqrt(sum((e.pos - pl.gpos).^2)) < 1 || sqrt(sum((e.pos - p.pos).^2)) < 1
+    if sqrt(sum((e.pos - pl.gpos).^2)) < 0.5 || sqrt(sum((e.pos - p.pos).^2)) < 0.3
         break
     end
     data(k,:) = [p.pos, e.pos, xpur];
@@ -402,10 +435,10 @@ text(data(rows,5)-1.8, data(rows,6)-1.2, txt)
 %% visualize interception line
 
 dt = 0.1;
-p = Agent2D('pos', [-3, -1], 'yaw', -1.7, 'vmax', 1, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [0, -8], 'yaw', 3, 'vmax', 2, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+p = Agent2D('pos', [-2.1180    0.8210], 'vmax', 1, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 2, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+e = Agent2D('pos', [2.7970   -0.3792], 'vmax', 1, 'dt', dt, 'color', [1 0.3 0.3], ...
+    'yaw', 0.5, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 
 pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);
 pl.tp = grow_tree(map, p.pos);
@@ -414,8 +447,8 @@ pl.te = grow_trim_tree(pl, pl.tp, e.pos);
 %%
 step(pl)
 
-x = map.lims(1) : 0.3: map.lims(2);
-y = map.lims(3) : 0.3 : map.lims(4);
+x = map.lims(1) : 0.2: map.lims(2);
+y = map.lims(3) : 0.2 : map.lims(4);
 
 [xg, yg] = meshgrid(x, y);
 
@@ -437,19 +470,19 @@ for k1 = 1 : length(x)
 end
 toc
 
-% te2 = grow_tree(map, e.pos);
-% te2.cumcost = te2.cumcost * p.vmax / e.vmax;
-% pl.te.cumcost = pl.te.cumcost * p.vmax / e.vmax;
+te2 = grow_tree(map, e.pos);
+te2.cumcost = te2.cumcost * p.vmax / e.vmax;
+pl.te.cumcost = pl.te.cumcost * p.vmax / e.vmax;
 
-% figure, plot_tree(map, pl.te)
-% figure, plot_tree(map, te2)
+figure, plot_tree(map, pl.te)
+figure, plot_tree(map, te2)
 
-% pl.te.cumcost = pl.te.cumcost * e.vmax / p.vmax;
+pl.te.cumcost = pl.te.cumcost * e.vmax / p.vmax;
 
-% d = 5;
-% figure, plot_tree(map, pl.te)
-% quiver(xg(1:d:end,1:d:end), yg(1:d:end,1:d:end), -vxe(1:d:end,1:d:end), -vye(1:d:end,1:d:end))
-% plot(e), plot(p)
+d = 5;
+figure, plot_tree(map, pl.te)
+quiver(xg(1:d:end,1:d:end), yg(1:d:end,1:d:end), -vxe(1:d:end,1:d:end), -vye(1:d:end,1:d:end))
+plot(e), plot(p)
 
 
 %%
