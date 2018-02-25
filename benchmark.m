@@ -238,11 +238,14 @@ mapfile = 'lab_map';
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 
+th = linspace(0, 2*pi, 15)';
+shape = [cos(th), sin(th)] * 0.1;
+
 dt = 0.1;
 p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 0.4, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'yaw', 2, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+    'yaw', 2, 'shape', shape);
 e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 0.4, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'yaw', 0.5, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+    'yaw', 0.5, 'shape', shape);
 
 pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);
 pl.tp = grow_tree(map, p.pos);

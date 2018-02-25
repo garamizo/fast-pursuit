@@ -133,6 +133,7 @@ classdef Agent2D < handle
 
             pos0 = obj.pos;
             obj.correct()
+
             
             % differential drive control
 %             u = pctrl(obj, tpos);
