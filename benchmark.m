@@ -242,10 +242,10 @@ th = linspace(0, 2*pi, 15)';
 shape = [cos(th), sin(th)] * 0.1;
 
 dt = 0.1;
-p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 0.4, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'yaw', 2, 'shape', shape);
 e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 0.4, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'yaw', 0.5, 'shape', shape);
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 0.4, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 
 pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);
 pl.tp = grow_tree(map, p.pos);
@@ -268,8 +268,7 @@ end
 % initial assessment
 [x, fval] = step(pl);
 [~, idx] = min(fval);
-[~, ~, ~, path] = find_path(map, pl.tp, x(idx,:));
-pplan = [p.pos; path];
+[~, ~, ~, pplan] = find_path(map, pl.tp, x(idx,:));
 
 plot(map), hold on
 hh = plot(0, 0, '^');
@@ -287,14 +286,12 @@ for k = 1 : 3000
         interp1([mpix(3)+100, mpix(3)+mpix(4)-50], map.lims(3:4), ppix(2), 'linear', 'extrap')];
     set(hh, 'XData', ppos(1), 'YData', ppos(2))
     set_plan(e, [e.pos; ppos], 100);
-    
-    if sqrt(sum((e.pos - p.pos).^2)) < 0.3 % pure pursuit
-        set_plan(p, [p.pos; e.pos], 100);
-        xpur = e.pos;
+    plot(e.ctrl)
         
-    elseif mod(k-1, 1) == 0
+    if mod(k-1, 1) == 0
         
         set_plan(p, pplan, 100);
+        plot(p.ctrl)
         xpur = pplan(end,:);
         plot(pl)
         
@@ -302,26 +299,14 @@ for k = 1 : 3000
         [x, fval] = step(pl);
         if ~isempty(x)
             [~, idx] = min(fval);
-            [~, ~, ~, path] = find_path(map, pl.tp, x(idx,:));
-            pplan = [p.pos; path];
+            [~, ~, ~, pplan] = find_path(map, pl.tp, x(idx,:));
         end
     end
     
 %     pl.gpos = interp1(K, GPOS, 1+0*min(k,K(end)), 'linear');
 
-    p0 = step(p);
-    if collide(map, p0, p.pos)
-%         fprintf('collision!\n')
-        p.pos = p0;
-%         break
-    end
-    
-    p0 = step(e);
-    if collide(map, p0, e.pos)
-        e.pos = p0;
-%         fprintf('collision!\n')
-%         break
-    end
+    step(p);
+    step(e);
     
     plot(p)
     plot(e)

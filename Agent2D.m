@@ -10,8 +10,8 @@ classdef Agent2D < handle
         shape = [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 1e-2
         color = [0 0 1]
         dt = 1/5
-        hb = []
-        hc = []
+        hb = 0
+        hc = 0
         camidx = 1
         
         etc
@@ -22,6 +22,7 @@ classdef Agent2D < handle
         vop
         
         dist_tol = 0.1
+        ctrl
     end
     
     methods
@@ -45,13 +46,8 @@ classdef Agent2D < handle
             % wpoint: way points of the plan, Nx2
             % perf: [0, 100] speed performance
 
-%             wpoint = [obj.pos; wpoint];
-            s = [0; cumsum(sqrt(sum(diff(wpoint).^2, 2)))];
-            s = s + linspace(0, 1e-5, length(s))';
-            ss = (s(1) : obj.vmax*obj.dt : s(end))';
-            obj.plan = interp1(s, wpoint, ss);
-            
-            obj.vop = obj.vmax * perf / 100;
+            obj.ctrl.DesiredLinearVelocity = obj.vmax * perf / 100;
+            obj.ctrl.set(wpoint);
         end
         
         
@@ -105,68 +101,47 @@ classdef Agent2D < handle
         
         function correct(obj)
             % correct position using camera, if exist
-            if ~isempty(obj.hc)
-                [tracked, pos0, yaw0] = Agent2D.read_mocap(obj.hc, obj.camidx);
-                if tracked
-                    obj.pos = pos0;
-                    obj.yaw = yaw0;
-                end
+            [tracked, pos0, yaw0] = Agent2D.read_mocap(obj.hc, obj.camidx);
+            if tracked
+                obj.pos = pos0;
+                obj.yaw = yaw0;
             end
         end
         
-        function predict(obj, v, w)
-            if abs(w) > 1e-2
-                rad = v/w; % radius of turn
-                pos2 = obj.pos + rad*[sin(w*obj.dt), 1-cos(w*obj.dt)] * obj.Rz(obj.yaw)';
-            else
-                pos2 = obj.pos + [v*obj.dt, 0] * obj.Rz(obj.yaw)';
-            end
-            rot2 = obj.yaw + w*obj.dt;
-
-            obj.pos = pos2;
-            obj.yaw = rot2;
+        function predict(obj, twist)
+            
+            pose = [obj.pos, obj.yaw] + twist * Rz(obj.yaw)' * obj.dt;
+            obj.pos = pose(1:2);
+            obj.yaw = pose(3);
         end
         
-        function pos0 = step(obj, varargin)
+        function pos0 = step(obj)
             % agent.step(): follows pre-assigned plan
             % agent.step(posd): moves towards posd
 
             pos0 = obj.pos;
-            obj.correct()
-
-            
-            % differential drive control
-%             u = pctrl(obj, tpos);
-            if ~isempty(obj.plan) && obj.enable
-                u = line_follow(obj);
-            else
-                u = [0, 0];
-            end
-            
-            v = u(1);
-            w = u(2);
-            
-            if abs(w) > obj.wmax
-                w = obj.wmax * sign(w);
-            end
-            if abs(v) + (obj.vmax/obj.wmax)*abs(w) > obj.vmax
-                v = sign(v) * (obj.vmax - (obj.vmax/obj.wmax)*abs(w));
-            end
-
-            % predict new pose
-            obj.predict(v, w);
-            
-            % update motors, if exist
-            if ~isempty(obj.hb)
-                k1 = obj.vmax/10;
-                k2 = obj.wmax/10;
-                volt = [k1, k1; k2, -k2] \ [v; w];
-
-                if max(abs(volt)) > 5
-                    volt = volt * 5 / max(abs(volt));
+            try
+                obj.correct()
+            catch ME
+                if ~strcmp(ME.identifier, 'FastPursuit:Natnet_is_closed')
+                    rethrow(ME)
                 end
-                fprintf(obj.hb, '%dr %dr\n', (round(volt*100/5)));
             end
+
+            twist = obj.ctrl.step([obj.pos, obj.yaw]);
+            obj.predict(twist);
+            
+%             % update motors, if exist
+%             k1 = obj.vmax/10;
+%             k2 = obj.wmax/10;
+%             volt = [k1, k1; k2, -k2] \ [v; w];
+%             if max(abs(volt)) > 5
+%                 volt = volt * 5 / max(abs(volt));
+%             end
+%             try
+%                 fprintf(obj.hb, '%dr %dr\n', (round(volt*100/5)));
+%             catch
+%             end
         end
         
         function plot(obj)
@@ -212,6 +187,9 @@ classdef Agent2D < handle
         function [tracked, pos, rot] = read_mocap(hc, bidx)
             % bidx: body index
 
+            assert(isa(hc, 'natnet'), 'FastPursuit:Natnet_is_closed', ...
+                'Natnet was not initialized or was closed')
+                
             f = hc.getFrame();
             rbody = f.RigidBody(bidx);
             tracked = rbody.Tracked;
