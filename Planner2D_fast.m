@@ -15,7 +15,7 @@ classdef Planner2D_fast < handle
         tg
         
         x0
-        nx0 = 4
+        nx0 = 10
         
         tracks = repmat(struct('pos', [0, 0], 'cost', 0, 'count', 0), [0, 1])
         maxtracks = 5
@@ -27,7 +27,7 @@ classdef Planner2D_fast < handle
         problem
         ms
         
-        dist_tol = 0.01 % length resolution
+        dist_tol % length resolution
     end
     
     methods
@@ -44,8 +44,10 @@ classdef Planner2D_fast < handle
                 end
             end
             
+            obj.dist_tol = min(diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))) / 20;
+            
             obj.tg = grow_tree(obj.m, obj.gpos);
-            obj.x0 = rand(15,2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3]);
+            obj.x0 = rand(obj.nx0,2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3]);
             
             obj.tp = grow_tree(obj.m, obj.gpos);
             
@@ -56,10 +58,17 @@ classdef Planner2D_fast < handle
 %                 'ConstraintTolerance', 100e-3, 'HessianFcn', @(x,lambda) hessianfcn(obj, x, lambda));
             
             obj.opt = optimoptions(@fmincon,'Algorithm','sqp', 'display', 'off');
-            obj.opt = optimoptions(obj.opt,'SpecifyObjectiveGradient',true,'SpecifyConstraintGradient',true, ...
-                'MaxIterations', 100, 'MaxFunctionEvaluations', 500, 'StepTolerance', 5e-3, ...
-                'TypicalX', [10 10], 'ObjectiveLimit', 0, 'OptimalityTolerance', obj.dist_tol/10, ...
-                'ConstraintTolerance', obj.dist_tol/10, 'HessianApproximation', 'lbfgs');
+            obj.opt = optimoptions(obj.opt, ...
+                        'SpecifyObjectiveGradient', true, ...
+                        'SpecifyConstraintGradient', true, ...
+                        'MaxIterations', 10, ...
+                        'MaxFunctionEvaluations', 50, ...
+                        'StepTolerance', obj.dist_tol / 100, ...
+                        'TypicalX', [diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))] / 2, ...
+                        'ObjectiveLimit', 0, ...
+                        'OptimalityTolerance', obj.dist_tol / 10, ...
+                        'ConstraintTolerance', obj.e.dt / 10, ...
+                        'HessianApproximation', 'lbfgs');
             
         end
         
@@ -86,27 +95,26 @@ classdef Planner2D_fast < handle
             
             % search N random points
             N = 5;
-            pos0 = [obj.x0; rand(N-size(obj.x0,1),2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3])];
+            pos0 = [obj.x0 + 0.01*randn(size(obj.x0,1), 2)
+                rand(N-size(obj.x0,1),2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3])];
             nsols = 0;
-            for k = 1 : N
+            for k = 1 : size(pos0, 1)
                 try
-                    [x, fv] = search_intercept(obj, pos0(k,:));
-
+                    [pos(nsols+1,:), fval(nsols+1,:)] = search_intercept(obj, pos0(k,:));
+                    xout(k,:) = pos(nsols+1,:);
                     nsols = nsols + 1;
-                    pos(nsols,:) = x;
-                    fval(nsols,:) = fv;
-                    sol_x0(nsols,:) = pos0(k,:);
                     
                 catch ME
                     if ~strcmp(ME.identifier, 'FastPursuit:No_solution') && ...
                        ~strcmp(ME.identifier, 'optim:sqpInterface:UsrObjUndefAtX0')
                         rethrow(ME)
                     end
+                    xout(k,:) = NaN(1, 2);
                 end
             end
             
             if nsols > 0
-                obj.etc = struct('pos', pos, 'pos0', sol_x0);
+                obj.etc = struct('pos', pos0, 'x', xout);
 
                 % remove duplicates
                 % uidx points to the unique points
@@ -157,7 +165,7 @@ classdef Planner2D_fast < handle
                             find_path(obj.m, obj.tp(k2), obj.tracks(iscost(k1)).pos) / obj.p(k2).vmax;
                     end
                 end
-                asstracks = assignDetectionsToTracks(costmat, 1e5)
+                asstracks = assignDetectionsToTracks(costmat, 1e5);
                 asstracks = iscost(asstracks(:,1));
                 asstracks(end+1:length(obj.p)) = iscost(1);
             else
@@ -240,11 +248,10 @@ classdef Planner2D_fast < handle
                 
                 
 %                 obj.h = plot(obj.x0(:,1), obj.x0(:,2), 'xr');
-                obj.h = plot([0, 0], [0, 0], '.-', 'color', [0.8 0.8 0.6], 'markersize', 12);
+                obj.h = plot([0, 0], [0, 0], '.-', 'color', [0.8 0.8 0.6], 'markersize', 12);  % x0 -> x
                 obj.h(4) = scatter(zeros(2,1), zeros(2,1), [1e-5;1e-5], [1, 0.5, 0], '+', 'linewidth', 1.5);
                 obj.h(2) = scatter(zeros(2,1), zeros(2,1), [1e-5;1e-5], [1, 0.5, 0], 'linewidth', 1.5);
                 obj.h(3) = scatter(obj.gpos(1), obj.gpos(2), 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3);
-                
                 
                 ds = min(diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))) / 50;
                 x = obj.m.lims(1) : ds : obj.m.lims(2);
@@ -266,7 +273,8 @@ classdef Planner2D_fast < handle
 %             set(obj.h(1), 'XData', obj.x0(:,1), 'YData', obj.x0(:,2))
             
             if ~isempty(obj.etc)
-                pp = cat(3, obj.etc.pos, obj.etc.pos0, NaN(size(obj.etc.pos)));
+                % plot initial guess joined to local solution
+                pp = cat(3, obj.etc.pos, obj.etc.x, NaN(size(obj.etc.pos)));
                 pp = reshape(permute(pp, [3 1 2]), [3*size(obj.etc.pos,1), 2, 1]);
                 set(obj.h(1), 'XData', pp(:,1), 'YData', pp(:,2))
             end

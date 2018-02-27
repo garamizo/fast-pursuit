@@ -234,27 +234,49 @@ set(gca,'Visible','off')
 %% test speed of pursuit
 close all
 
+th = linspace(0, 2*pi, 15)';
+
+agent_positions = [ 1.4862      -0.5248
+                    -2.1180     0.8210
+                    2.5         -0.5
+                    2.5         0.8
+                    1.5         0.9
+                    1.5         -0.5
+                    3.5         -0.5 ];
 mapfile = 'lab_map';
+shape = [cos(th), sin(th)] * 0.1;
+vmax = 0.5;
+
+% agent_positions = [ 1.4862      -0.5248
+%                     -12.1523    6.3158
+%                     -1.2688   -3.3271
+%                       -12.3778   -8.4023
+%                         0.6485   -8.3459
+%                         8.3741   -5.1880
+%                        10.2350    3.4398 ];
+% mapfile = 'maze';
+% shape = [cos(th), sin(th)] * 0.5;
+% vmax = 2;
+
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
-
-th = linspace(0, 2*pi, 15)';
-shape = [cos(th), sin(th)] * 0.1;
-
 dt = 0.1;
-vmax = 1;
-e = Agent2D('pos', [-2.1180    0.8210], 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
+capdist = min(diff(map.lims(1:2)), diff(map.lims(3:4))) / 15;
+
+e = Agent2D('pos', agent_positions(2,:), 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-p = Agent2D('pos', [2.5   -0.5], 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+p = Agent2D('pos', agent_positions(3,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-p(2) = Agent2D('pos', [2.5   0.8], 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+p(2) = Agent2D('pos', agent_positions(4,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-% p(3) = Agent2D('pos', [1.5   0.9], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
+% p(3) = Agent2D('pos', agent_positions(5,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
 %     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-% p(4) = Agent2D('pos', [1.5   -0.5], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
+% p(4) = Agent2D('pos', agent_positions(6,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+%     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+% p(5) = Agent2D('pos', agent_positions(7,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
 %     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 
-pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);
+pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', agent_positions(1,:));
 % pl.tp = grow_tree(map, p(1).pos);
 % pl.tp(2) = grow_tree(map, p(2).pos);
 % pl.te = grow_tree(map, e.pos);
@@ -330,7 +352,7 @@ for k = 1 : 3000
         dist(k2) = sqrt(sum((e.pos - p(k2).pos).^2));
     end
     
-    if sqrt(sum((e.pos - pl.gpos).^2)) < 0.5 || any(dist < 0.3)
+    if sqrt(sum((e.pos - pl.gpos).^2)) < capdist || any(dist < capdist)
         break
     end
 %     data(k,:) = [p(1).pos, e.pos];
@@ -349,6 +371,8 @@ fprintf('Execution time: %.1f ms\n', toc * 1000 / k)
 if record
     close(v)
 end
+
+figure, plot(1./diff(time(1:k-1)), '.-')
 
 % hold off
 % plot(diff(time(1:k-1)))
