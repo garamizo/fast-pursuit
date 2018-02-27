@@ -85,9 +85,16 @@ classdef Planner2D_fast < handle
             nsols = 0;
             for k = 1 : N
                 try
-                    [pos(nsols+1,:), fval(nsols+1,1), exitflag(nsols+1)] = search_intercept(obj, pos0(k,:));
-                    sol_x0(nsols+1,:) = pos0(k,:);
+                    [x, fv, exitflag] = search_intercept(obj, pos0(k,:));
+                    
+                    assert(exitflag > 0, 'FastPursuit:No_solution', ...
+                        'negative exitflag')
+
                     nsols = nsols + 1;
+                    pos(nsols,:) = x;
+                    fval(nsols,:) = fv;
+                    sol_x0(nsols,:) = pos0(k,:);
+                    
                 catch ME
                     if ~strcmp(ME.identifier, 'FastPursuit:No_solution') && ...
                        ~strcmp(ME.identifier, 'optim:sqpInterface:UsrObjUndefAtX0')

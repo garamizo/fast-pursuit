@@ -11,6 +11,7 @@ classdef Map2D_fast < handle
         gd_safe
         kpos % keypoints
         cost
+        obstacle_dilation = 0.01
     end
     
     methods
@@ -33,7 +34,7 @@ classdef Map2D_fast < handle
             obj.gd_tight = obj.gd; % save temporarily
             
             % create nodes
-            [obj.kpos, obj.gd_safe] = gen_kpos(obj, 0.2);
+            [obj.kpos, obj.gd_safe] = gen_kpos(obj, obj.obstacle_dilation);
             
             % create cost
             obj.gd = obj.gd_safe;
