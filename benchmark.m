@@ -242,17 +242,21 @@ th = linspace(0, 2*pi, 15)';
 shape = [cos(th), sin(th)] * 0.1;
 
 dt = 0.1;
-e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 0.4, 'dt', dt, 'color', [1 0.3 0.3], ...
+e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 0.5, 'dt', dt, 'color', [1 0.3 0.3], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-p = Agent2D('pos', [2.5   -0.5], 'vmax', 0.4, 'dt', dt, 'color', [0.3 0.3 1], ...
+p = Agent2D('pos', [2.5   -0.5], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-p2 = Agent2D('pos', [2.5   0.8], 'vmax', 0.4, 'dt', dt, 'color', [0.3 0.3 1], ...
+p(2) = Agent2D('pos', [2.5   0.8], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+p(3) = Agent2D('pos', [1.5   0.9], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+p(4) = Agent2D('pos', [1.5   -0.5], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 
-pl = Planner2D_fast('p', p, 'e', e, 'p2', p2, 'm', map, 'gpos', [1.4862   -0.5248]);
-pl.tp = grow_tree(map, p.pos);
-pl.tp2 = grow_tree(map, p2.pos);
-pl.te = grow_tree(map, e.pos);
+pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);
+% pl.tp = grow_tree(map, p(1).pos);
+% pl.tp(2) = grow_tree(map, p(2).pos);
+% pl.te = grow_tree(map, e.pos);
 
 data = zeros(3000,6);
 
@@ -270,8 +274,10 @@ end
 
 % initial assessment
 x = step(pl);
-[~, ~, ~, pplan] = find_path(map, pl.tp, x(1,:));
-[~, ~, ~, pplan2] = find_path(map, pl.tp2, x(2,:));
+clear pplan
+for k = 1 : length(p)
+    [~, ~, ~, pplan{k}] = find_path(map, pl.tp(k), x(k,:));
+end
 
 plot(map), hold on
 hh = plot(0, 0, '^');
@@ -281,7 +287,7 @@ hold on
 time = zeros(3000);
 t0 = tic;
 for k = 1 : 3000
-    tic
+    t12 = tic;
 
     ppix = get(0, 'PointerLocation'); % pointer absolute location (X, Y) [px]
     mpix = get(gcf, 'position').*[1 1 0 0] + get(gca, 'Position');
@@ -293,41 +299,40 @@ for k = 1 : 3000
         
     if mod(k-1, 1) == 0
         
-        set_plan(p, pplan, 100);
-        set_plan(p2, pplan2, 100);
-        
-        plot(p.ctrl)
-        plot(p2.ctrl)
-        xpur = pplan(end,:);
         plot(pl)
         
+        for k2 = 1 : length(p)
+            set_plan(p(k2), pplan{k2}, 100);
+            plot(p(k2).ctrl)
+        end
+
         % start calculating new plan
         x = step(pl);
         if ~isempty(x)
-            [~, ~, ~, pplan] = find_path(map, pl.tp, x(1,:));
-            [~, ~, ~, pplan2] = find_path(map, pl.tp2, x(2,:));
+            for k2 = 1 : length(p)
+                [~, ~, ~, pplan{k2}] = find_path(map, pl.tp(k2), x(k2,:));
+            end
         end
     end
     
 %     pl.gpos = interp1(K, GPOS, 1+0*min(k,K(end)), 'linear');
 
-    step(p);
-    step(p2);
     step(e);
-    
-    plot(p)
-    plot(p2)
     plot(e)
     
-    if sqrt(sum((e.pos - pl.gpos).^2)) < 0.5 || ...
-            sqrt(sum((e.pos - p.pos).^2)) < 0.3 || ...
-            sqrt(sum((e.pos - p2.pos).^2)) < 0.3
+    for k2 = 1 : length(p)
+        step(p(k2));
+        plot(p(k2))
+        dist(k2) = sqrt(sum((e.pos - p(k2).pos).^2));
+    end
+    
+    if sqrt(sum((e.pos - pl.gpos).^2)) < 0.5 || any(dist < 0.3)
         break
     end
-    data(k,:) = [p.pos, e.pos, xpur];
+%     data(k,:) = [p(1).pos, e.pos];
     
     drawnow
-    pause(dt- toc)
+    pause(dt- toc(t12))
     time(k) = toc(t0);
     
     if record

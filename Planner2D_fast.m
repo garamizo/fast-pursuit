@@ -8,8 +8,7 @@ classdef Planner2D_fast < handle
         e
         m
         
-        tp
-        tp2
+        tp = struct()
         te
         
         gpos
@@ -48,6 +47,8 @@ classdef Planner2D_fast < handle
             obj.tg = grow_tree(obj.m, obj.gpos);
             obj.x0 = rand(15,2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3]);
             
+            obj.tp = grow_tree(obj.m, obj.gpos);
+            
 %             obj.opt = optimoptions(@fmincon,'Algorithm','interior-point', 'display', 'off');
 %             obj.opt = optimoptions(obj.opt,'SpecifyObjectiveGradient',true,'SpecifyConstraintGradient',true, ...
 %                 'MaxIterations', 100, 'MaxFunctionEvaluations', 500, 'StepTolerance', 0.1e-3, ...
@@ -66,14 +67,11 @@ classdef Planner2D_fast < handle
         function [x, fval] = step(obj)
 
             % create trees
-            [tr, free] = grow_tree(obj.m, obj.p.pos);
-            if free
-                obj.tp = tr;
-            end
-            
-            [tr, free] = grow_tree(obj.m, obj.p2.pos);
-            if free
-                obj.tp2 = tr;
+            for k = 1 : length(obj.p)
+                [tr, free] = grow_tree(obj.m, obj.p(k).pos);
+                if free
+                    obj.tp(k) = tr;
+                end
             end
             
             [tr, free] = grow_tree(obj.m, obj.e.pos);
@@ -147,19 +145,24 @@ classdef Planner2D_fast < handle
             % assign best track for each pursuer
             if length(obj.tracks) > 1
                 [~, iscost] = sort([obj.tracks.cost]);
-                if find_path(obj.m, obj.tp, obj.tracks(iscost(1)).pos) > ...
-                    find_path(obj.m, obj.tp2, obj.tracks(iscost(1)).pos)
-                    iscost = iscost([2 1]);
+                for k1 = 1 : length(obj.tracks) % loop track
+                    for k2 = 1 : length(obj.p) % loop pursuer
+                        costmat(k1,k2) = find_path(obj.m, obj.tp(k2), obj.tracks(iscost(k1)).pos);
+                    end
                 end
+                asstracks = assignDetectionsToTracks(costmat, 1e10);
+                asstracks = asstracks(:,1);
+                asstracks(end+1:length(obj.p)) = iscost(1);
             else
-                iscost = [1, 1];
+                asstracks = ones(length(obj.p), 1);
             end
             
             % update initial guess for next step
             obj.x0 = cat(1, obj.tracks(:).pos);
             fval = cat(1, obj.tracks(:).cost);
             
-            x = cat(1, obj.tracks(iscost).pos);
+%             asstracks
+            x = cat(1, obj.tracks(asstracks).pos);
         end
         
         function [f, gradf] = objfungrad(obj, x)
@@ -172,17 +175,21 @@ classdef Planner2D_fast < handle
             % (path distance from 
             [ce, ~, ve] = find_path(obj.m, obj.te, x);
             
-            [cp, ~, vp] = find_path(obj.m, obj.tp, x);
-            [cp2, ~, vp2] = find_path(obj.m, obj.tp2, x);
-            if cp/obj.p.vmax > cp2/obj.p2.vmax
-                cp = cp2;
-                vp = vp2;
+            cpnorm = Inf;
+            vpnorm = [1, 0];
+            for k = 1 : length(obj.tp)
+                [cpp, ~, vpp] = find_path(obj.m, obj.tp(k), x);
+                
+                if cpp/obj.p(k).vmax < cpnorm
+                    cpnorm = cpp / obj.p(k).vmax;
+                    vpnorm = vpp / obj.p(k).vmax;
+                end
             end
             
             ceq = [];
-            c = ce/obj.e.vmax - cp/obj.p.vmax;
+            c = ce/obj.e.vmax - cpnorm;
             DCeq = [];
-            DC = -(ve/obj.e.vmax - vp/obj.p.vmax)';
+            DC = -(ve/obj.e.vmax - vpnorm)';
         end
         
         function [pos, fval, exitflag, count] = search_intercept(obj, pos0)
@@ -243,7 +250,9 @@ classdef Planner2D_fast < handle
                 contour(xg, yg, c);
             end
             
-            plot(obj.p)
+            for k = 1 : length(obj.p)
+            plot(obj.p(k))
+            end
             plot(obj.e)
 %             set(obj.h(1), 'XData', obj.x0(:,1), 'YData', obj.x0(:,2))
             
