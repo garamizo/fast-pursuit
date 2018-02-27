@@ -105,20 +105,25 @@ classdef Planner2D_fast < handle
                 end
             end
             
-            obj.etc = struct('pos', pos, 'pos0', sol_x0);
-            
-            % remove duplicates
-            % uidx points to the unique points
-            [~, ~, uidx] = unique(round(pos / (5*obj.dist_tol)) * 5 *obj.dist_tol, 'rows');
-            for k = 1 : max(uidx)
-                fpos(k,:) = mean(pos(uidx==k,:), 1);
-                ffval(k,1) = mean(fval(uidx==k), 1);
+            if nsols > 0
+                obj.etc = struct('pos', pos, 'pos0', sol_x0);
+
+                % remove duplicates
+                % uidx points to the unique points
+                [~, ~, uidx] = unique(round(pos / (5*obj.dist_tol)) * 5 *obj.dist_tol, 'rows');
+                for k = 1 : max(uidx)
+                    fpos(k,:) = mean(pos(uidx==k,:), 1);
+                    ffval(k,1) = mean(fval(uidx==k), 1);
+                end
+                pos = fpos;
+                fval = ffval;
+            else
+                pos = zeros(0, 2);
+                fval = zeros(0, 1);
             end
-            pos = fpos;
-            fval = ffval;
             
             % find lost tracks
-            costOfNonAssignment = 5;
+            costOfNonAssignment = 2;
             costMatrix = zeros(length(obj.tracks), size(pos, 1));
             for k1 = 1 : length(obj.tracks)
                 for k2 = 1 : size(pos, 1)
@@ -135,7 +140,7 @@ classdef Planner2D_fast < handle
             for k = 1 : size(unassignedTracks,1)
                 obj.tracks(unassignedTracks(k)).count = obj.tracks(unassignedTracks(k)).count + 1;
             end
-            rows = [obj.tracks.count] <= 1;
+            rows = [obj.tracks.count] <= 5;  % remove tracks gone for 5 loops
             obj.tracks = obj.tracks(rows);
             for k = 1 : size(unassignedDetections,1)
                 obj.tracks(end+1) = struct('pos', pos(unassignedDetections(k),:), ...
@@ -147,11 +152,11 @@ classdef Planner2D_fast < handle
                 [~, iscost] = sort([obj.tracks.cost]);
                 for k1 = 1 : length(obj.tracks) % loop track
                     for k2 = 1 : length(obj.p) % loop pursuer
-                        costmat(k1,k2) = find_path(obj.m, obj.tp(k2), obj.tracks(iscost(k1)).pos);
+                        costmat(k1,k2) = find_path(obj.m, obj.tp(k2), obj.tracks(iscost(k1)).pos) / obj.p(k2).vmax;
                     end
                 end
-                asstracks = assignDetectionsToTracks(costmat, 1e10);
-                asstracks = asstracks(:,1);
+                asstracks = assignDetectionsToTracks(costmat, 1e20);
+                asstracks = iscost(asstracks(:,1));
                 asstracks(end+1:length(obj.p)) = iscost(1);
             else
                 asstracks = ones(length(obj.p), 1);
@@ -171,18 +176,20 @@ classdef Planner2D_fast < handle
             gradf = -gradf;
         end
 
-        function [c, ceq, DC, DCeq] = confungrad(obj, x)
+        function [c, ceq, DC, DCeq, idx] = confungrad(obj, x)
             % (path distance from 
             [ce, ~, ve] = find_path(obj.m, obj.te, x);
             
             cpnorm = Inf;
             vpnorm = [1, 0];
+            idx = 1;
             for k = 1 : length(obj.tp)
                 [cpp, ~, vpp] = find_path(obj.m, obj.tp(k), x);
                 
                 if cpp/obj.p(k).vmax < cpnorm
                     cpnorm = cpp / obj.p(k).vmax;
                     vpnorm = vpp / obj.p(k).vmax;
+                    idx = k;
                 end
             end
             

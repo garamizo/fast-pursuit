@@ -242,11 +242,12 @@ th = linspace(0, 2*pi, 15)';
 shape = [cos(th), sin(th)] * 0.1;
 
 dt = 0.1;
-e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 0.5, 'dt', dt, 'color', [1 0.3 0.3], ...
+vmax = 0.6;
+e = Agent2D('pos', [-2.1180    0.8210], 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-p = Agent2D('pos', [2.5   -0.5], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
+p = Agent2D('pos', [2.5   -0.5], 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-p(2) = Agent2D('pos', [2.5   0.8], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
+p(2) = Agent2D('pos', [2.5   0.8], 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 p(3) = Agent2D('pos', [1.5   0.9], 'vmax', 0.5, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
@@ -284,6 +285,7 @@ hh = plot(0, 0, '^');
 hold on
 
 % close all
+clear dist
 time = zeros(3000);
 t0 = tic;
 for k = 1 : 3000
@@ -301,16 +303,18 @@ for k = 1 : 3000
         
         plot(pl)
         
-        for k2 = 1 : length(p)
-            set_plan(p(k2), pplan{k2}, 100);
-            plot(p(k2).ctrl)
-        end
+%         for k2 = 1 : length(p)
+%             set_plan(p(k2), pplan{k2}, 100);
+%             plot(p(k2).ctrl)
+%         end
 
         % start calculating new plan
         x = step(pl);
         if ~isempty(x)
             for k2 = 1 : length(p)
                 [~, ~, ~, pplan{k2}] = find_path(map, pl.tp(k2), x(k2,:));
+                set_plan(p(k2), pplan{k2}, 100);
+                plot(p(k2).ctrl)
             end
         end
     end
