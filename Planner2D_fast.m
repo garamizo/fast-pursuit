@@ -4,10 +4,12 @@ classdef Planner2D_fast < handle
     
     properties
         p
+        p2
         e
         m
         
         tp
+        tp2
         te
         
         gpos
@@ -69,6 +71,11 @@ classdef Planner2D_fast < handle
                 obj.tp = tr;
             end
             
+            [tr, free] = grow_tree(obj.m, obj.p2.pos);
+            if free
+                obj.tp2 = tr;
+            end
+            
             [tr, free] = grow_tree(obj.m, obj.e.pos);
             if free || ~free
                 obj.te = tr;
@@ -85,10 +92,7 @@ classdef Planner2D_fast < handle
             nsols = 0;
             for k = 1 : N
                 try
-                    [x, fv, exitflag] = search_intercept(obj, pos0(k,:));
-                    
-                    assert(exitflag > 0, 'FastPursuit:No_solution', ...
-                        'negative exitflag')
+                    [x, fv] = search_intercept(obj, pos0(k,:));
 
                     nsols = nsols + 1;
                     pos(nsols,:) = x;
@@ -140,26 +144,45 @@ classdef Planner2D_fast < handle
                     'cost', fval(unassignedDetections(k)), 'count', 0); 
             end
             
+            % assign best track for each pursuer
+            if length(obj.tracks) > 1
+                [~, iscost] = sort([obj.tracks.cost]);
+                if find_path(obj.m, obj.tp, obj.tracks(iscost(1)).pos) > ...
+                    find_path(obj.m, obj.tp2, obj.tracks(iscost(1)).pos)
+                    iscost = iscost([2 1]);
+                end
+            else
+                iscost = [1, 1];
+            end
+            
             % update initial guess for next step
             obj.x0 = cat(1, obj.tracks(:).pos);
             fval = cat(1, obj.tracks(:).cost);
             
-            x = obj.x0;
+            x = cat(1, obj.tracks(iscost).pos);
         end
         
         function [f, gradf] = objfungrad(obj, x)
+            % path distance to target
             [f, ~, gradf] = find_path(obj.m, obj.tg, x);
             gradf = -gradf;
         end
 
         function [c, ceq, DC, DCeq] = confungrad(obj, x)
-            [cp, ~, vp] = find_path(obj.m, obj.tp, x);
+            % (path distance from 
             [ce, ~, ve] = find_path(obj.m, obj.te, x);
-
+            
+            [cp, ~, vp] = find_path(obj.m, obj.tp, x);
+            [cp2, ~, vp2] = find_path(obj.m, obj.tp2, x);
+            if cp/obj.p.vmax > cp2/obj.p2.vmax
+                cp = cp2;
+                vp = vp2;
+            end
+            
             ceq = [];
-            c = -(cp/obj.p.vmax - ce/obj.e.vmax);
+            c = ce/obj.e.vmax - cp/obj.p.vmax;
             DCeq = [];
-            DC = (vp/obj.p.vmax - ve/obj.e.vmax)';
+            DC = -(ve/obj.e.vmax - vp/obj.p.vmax)';
         end
         
         function [pos, fval, exitflag, count] = search_intercept(obj, pos0)
@@ -167,9 +190,9 @@ classdef Planner2D_fast < handle
             [pos, fval, exitflag, output] = fmincon(@(x) objfungrad(obj,x), ...
                 pos0,[],[],[],[],obj.m.lims([1 3]), obj.m.lims([2 4]), @(x)confungrad(obj,x), obj.opt);
             count = [output.funcCount, output.iterations];
-
-%             assert( confungrad(obj, pos) < 1, 'FastPursuit:No_solution', ...
-%                     'High constraint gradient' )
+            
+            assert(exitflag > 0, 'FastPursuit:No_solution', ...
+                        'negative exitflag')
         end
         
         function [Hout, H, Hp, He] = hessianfcn(obj, x, lambda)
@@ -207,8 +230,9 @@ classdef Planner2D_fast < handle
                 obj.h(3) = scatter(obj.gpos(1), obj.gpos(2), 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3);
                 
                 
-                x = linspace(obj.m.lims(1), obj.m.lims(2), 20);
-                y = linspace(obj.m.lims(3), obj.m.lims(4), 20);
+                ds = min(diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))) / 50;
+                x = obj.m.lims(1) : ds : obj.m.lims(2);
+                y = obj.m.lims(3) : ds : obj.m.lims(4);
                 [xg, yg] = meshgrid(x, y);
                 c = zeros(length(y), length(x));
                 for k1 = 1 : length(x)

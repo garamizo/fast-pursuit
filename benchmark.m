@@ -244,11 +244,14 @@ shape = [cos(th), sin(th)] * 0.1;
 dt = 0.1;
 e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 0.4, 'dt', dt, 'color', [1 0.3 0.3], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-p = Agent2D('pos', [1.3   -0.5], 'vmax', 0.4, 'dt', dt, 'color', [0.3 0.3 1], ...
+p = Agent2D('pos', [2.5   -0.5], 'vmax', 0.4, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+p2 = Agent2D('pos', [2.5   0.8], 'vmax', 0.4, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 
-pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248]);
+pl = Planner2D_fast('p', p, 'e', e, 'p2', p2, 'm', map, 'gpos', [1.4862   -0.5248]);
 pl.tp = grow_tree(map, p.pos);
+pl.tp2 = grow_tree(map, p2.pos);
 pl.te = grow_tree(map, e.pos);
 
 data = zeros(3000,6);
@@ -266,9 +269,9 @@ if record
 end
 
 % initial assessment
-[x, fval] = step(pl);
-[~, idx] = min(fval);
-[~, ~, ~, pplan] = find_path(map, pl.tp, x(idx,:));
+x = step(pl);
+[~, ~, ~, pplan] = find_path(map, pl.tp, x(1,:));
+[~, ~, ~, pplan2] = find_path(map, pl.tp2, x(2,:));
 
 plot(map), hold on
 hh = plot(0, 0, '^');
@@ -291,27 +294,34 @@ for k = 1 : 3000
     if mod(k-1, 1) == 0
         
         set_plan(p, pplan, 100);
+        set_plan(p2, pplan2, 100);
+        
         plot(p.ctrl)
+        plot(p2.ctrl)
         xpur = pplan(end,:);
         plot(pl)
         
         % start calculating new plan
-        [x, fval] = step(pl);
+        x = step(pl);
         if ~isempty(x)
-            [~, idx] = min(fval);
-            [~, ~, ~, pplan] = find_path(map, pl.tp, x(idx,:));
+            [~, ~, ~, pplan] = find_path(map, pl.tp, x(1,:));
+            [~, ~, ~, pplan2] = find_path(map, pl.tp2, x(2,:));
         end
     end
     
 %     pl.gpos = interp1(K, GPOS, 1+0*min(k,K(end)), 'linear');
 
     step(p);
+    step(p2);
     step(e);
     
     plot(p)
+    plot(p2)
     plot(e)
     
-    if sqrt(sum((e.pos - pl.gpos).^2)) < 0.5 || sqrt(sum((e.pos - p.pos).^2)) < 0.3
+    if sqrt(sum((e.pos - pl.gpos).^2)) < 0.5 || ...
+            sqrt(sum((e.pos - p.pos).^2)) < 0.3 || ...
+            sqrt(sum((e.pos - p2.pos).^2)) < 0.3
         break
     end
     data(k,:) = [p.pos, e.pos, xpur];
