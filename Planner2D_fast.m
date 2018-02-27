@@ -150,12 +150,14 @@ classdef Planner2D_fast < handle
             % assign best track for each pursuer
             if length(obj.tracks) > 1
                 [~, iscost] = sort([obj.tracks.cost]);
-                for k1 = 1 : length(obj.tracks) % loop track
+                iscost((length(obj.p)+1):end) = [];
+                for k1 = 1 : length(iscost) % loop track
                     for k2 = 1 : length(obj.p) % loop pursuer
-                        costmat(k1,k2) = find_path(obj.m, obj.tp(k2), obj.tracks(iscost(k1)).pos) / obj.p(k2).vmax;
+                        costmat(k1,k2) = 2 * obj.tracks(iscost(k1)).cost + ...
+                            find_path(obj.m, obj.tp(k2), obj.tracks(iscost(k1)).pos) / obj.p(k2).vmax;
                     end
                 end
-                asstracks = assignDetectionsToTracks(costmat, 1e20);
+                asstracks = assignDetectionsToTracks(costmat, 1e5)
                 asstracks = iscost(asstracks(:,1));
                 asstracks(end+1:length(obj.p)) = iscost(1);
             else
