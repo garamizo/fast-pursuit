@@ -11,6 +11,7 @@ classdef Map2D_fast < handle
         gd_safe
         kpos % keypoints
         cost
+        obstacle_dilation = 0.01
     end
     
     methods
@@ -33,7 +34,7 @@ classdef Map2D_fast < handle
             obj.gd_tight = obj.gd; % save temporarily
             
             % create nodes
-            [obj.kpos, obj.gd_safe] = gen_kpos(obj, 0.4);
+            [obj.kpos, obj.gd_safe] = gen_kpos(obj, obj.obstacle_dilation);
             
             % create cost
             obj.gd = obj.gd_safe;
@@ -187,8 +188,8 @@ classdef Map2D_fast < handle
                 h = fill(map.obs{k}(:,1), map.obs{k}(:,2), 'k');
                 set(h, 'FaceAlpha', 0.2, 'LineStyle', 'none');
                 hold on
-                dy = 5;
-                dx = 5;
+                dy = 1;
+                dx = 1;
                 yticks(map.lims(3):dy:map.lims(4))
                 xticks(map.lims(1):dx:map.lims(2))
             end
@@ -196,6 +197,7 @@ classdef Map2D_fast < handle
             daspect([1 1 1])
 %             set(gcf, 'position', [560   620   413   328]) % for paper
             set(gcf, 'position', [560   512   686   436]) % for video
+            set(gcf, 'units', 'pixels')
 %             set(gca,'TickDir','out');
 %             set(gca,'box','off')
             
@@ -352,6 +354,10 @@ classdef Map2D_fast < handle
                 v0 = wpos(2,:) - wpos(1,:);
                 v0 = v0 / sqrt(v0 * v0');
             end
+            
+%             if kmin > 17
+%                 error('???')
+%             end
         end
         
 

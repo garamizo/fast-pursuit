@@ -4,10 +4,11 @@ classdef Planner2D_fast < handle
     
     properties
         p
+        p2
         e
         m
         
-        tp
+        tp = struct()
         te
         
         gpos
@@ -25,6 +26,8 @@ classdef Planner2D_fast < handle
         
         problem
         ms
+        
+        dist_tol = 0.01 % length resolution
     end
     
     methods
@@ -44,6 +47,8 @@ classdef Planner2D_fast < handle
             obj.tg = grow_tree(obj.m, obj.gpos);
             obj.x0 = rand(15,2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3]);
             
+            obj.tp = grow_tree(obj.m, obj.gpos);
+            
 %             obj.opt = optimoptions(@fmincon,'Algorithm','interior-point', 'display', 'off');
 %             obj.opt = optimoptions(obj.opt,'SpecifyObjectiveGradient',true,'SpecifyConstraintGradient',true, ...
 %                 'MaxIterations', 100, 'MaxFunctionEvaluations', 500, 'StepTolerance', 0.1e-3, ...
@@ -53,104 +58,23 @@ classdef Planner2D_fast < handle
             obj.opt = optimoptions(@fmincon,'Algorithm','sqp', 'display', 'off');
             obj.opt = optimoptions(obj.opt,'SpecifyObjectiveGradient',true,'SpecifyConstraintGradient',true, ...
                 'MaxIterations', 100, 'MaxFunctionEvaluations', 500, 'StepTolerance', 5e-3, ...
-                'TypicalX', [10 10], 'ObjectiveLimit', 0, 'OptimalityTolerance', 10e-3, ...
-                'ConstraintTolerance', 1000e-3, 'HessianApproximation', 'lbfgs');
+                'TypicalX', [10 10], 'ObjectiveLimit', 0, 'OptimalityTolerance', obj.dist_tol/10, ...
+                'ConstraintTolerance', obj.dist_tol/10, 'HessianApproximation', 'lbfgs');
             
         end
         
-        
-        function [trout, free] = grow_trim_tree(obj, trp, pos)
-            
-            cost = triu(obj.m.cost) + triu(obj.m.cost)';
-            
-            nnodes = size(obj.m.kpos, 1);
-            parent = -ones(nnodes,1);
-            
-            % compute cost
-            cumcost = sqrt(sum((pos - obj.m.kpos).^2, 2));
-            cumcostp = trp.cumcost * obj.e.vmax / obj.p.vmax;
-            
-            free = false;
-            obj.m.gd = obj.m.gd_safe;
-            
-            for rep = 1 : 2
-            for k = 1 : nnodes
-                if cumcostp(k) > cumcost(k) && ~collide(obj.m, pos, obj.m.kpos(k,:))
-
-                    if cumcostp(trp.parent(k)) < cumcost(k)
-                        ve = obj.m.kpos(k,:) - pos;
-                        d = sqrt(ve * ve');
-                        ve = ve / d;
-                        vp = obj.m.kpos(k,:) - trp.pos(trp.parent(k),:);
-                        b = d + vp * ve';
-                        a = abs(vp * [ve(2); -ve(1)]) * obj.e.vmax / obj.p.vmax;
- 
-                        if acosd(vp * ve'/sqrt(vp*vp')) < 90 && (0 + b) > (cumcostp(trp.parent(k)) + a)
-                            cumcost(k) = Inf;
-                            continue
-                        end
-                    end
-
-                    parent(k) = nnodes+1;
-                    free = true;
-                else
-                    cumcost(k) = Inf;
-                end
-            end
-            obj.m.gd = obj.m.gd_tight;
-            
-            if free == true
-                break
-            end
-            end
-            
-            if free == false
-                trout = struct('pos', [obj.m.kpos; pos], 'cumcost', [Inf(nnodes,1); 0], 'parent', [zeros(nnodes,1); 0]);
-                return
-            end
-            
-            converge = false;
-            while ~converge
-                converge = true;
-                for k1 = 1 : nnodes
-                    for k2 = 1 : nnodes
-                        ncost = cumcost(k1) + cost(k1,k2);
-                        if ncost < cumcost(k2) && cumcostp(k2) > ncost && k1 ~= k2
-                            
-                            if cumcostp(trp.parent(k2)) < cumcost(k2)
-                                ve = obj.m.kpos(k2,:) - obj.m.kpos(k1,:);
-                                d = sqrt(ve * ve');
-                                ve = ve / d;
-                                vp = obj.m.kpos(k2,:) - trp.pos(trp.parent(k2),:);
-                                b = d - vp * ve';
-                                a = abs(vp * [ve(2); -ve(1)]) * obj.e.vmax / obj.p.vmax;
-
-                                if b > 0 && acosd(vp * ve'/sqrt(vp*vp')) < 90 && (cumcost(k1) + b) > (cumcostp(trp.parent(k2)) + a)
-                                    continue
-                                end
-                            end
-
-                            cumcost(k2) = ncost;
-                            parent(k2) = k1;
-                            converge = false;
-
-                        end
-                    end
-                end
-            end
-
-            trout = struct('pos', [obj.m.kpos; pos], 'cumcost', [cumcost; 0], 'parent', [parent; 0]);
-        end
-        
+  
         function [x, fval] = step(obj)
 
             % create trees
-            [tr, free] = grow_tree(obj.m, obj.p.pos);
-            if free
-                obj.tp = tr;
+            for k = 1 : length(obj.p)
+                [tr, free] = grow_tree(obj.m, obj.p(k).pos);
+                if free
+                    obj.tp(k) = tr;
+                end
             end
             
-            [tr, free] = grow_trim_tree(obj, obj.tp, obj.e.pos);
+            [tr, free] = grow_tree(obj.m, obj.e.pos);
             if free || ~free
                 obj.te = tr;
             end
@@ -160,50 +84,46 @@ classdef Planner2D_fast < handle
                 obj.tg = tr;
             end
             
-            ppdist = 2; % pursuer-evader distance to engage pure pursuit
-            if sqrt(sum((obj.p.pos - obj.e.pos).^2)) < ppdist && ~collide(obj.m, obj.p.pos, obj.e.pos)
-                fprintf('pure pursuit!\n')
-                pos = obj.e.pos;
-                fval = 0;
-                exitflag = 1;
-                pos0 = [NaN, NaN];
+            % search N random points
+            N = 5;
+            pos0 = [obj.x0; rand(N-size(obj.x0,1),2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3])];
+            nsols = 0;
+            for k = 1 : N
+                try
+                    [x, fv] = search_intercept(obj, pos0(k,:));
 
-            else
-                % search N random points
-                N = 5;
-                pos0 = [obj.x0; rand(N-size(obj.x0,1),2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3])];
-                pos = zeros(size(pos0));
-                fval = zeros(size(pos0,1), 1);
-                exitflag = zeros(size(pos0,1), 1);
-                for k = 1 : size(pos0,1)
-                    [pos(k,:), fval(k), exitflag(k)] = search_intercept(obj, pos0(k,:));
-                end
-            end
-            
-            pos(exitflag<=0,:) = NaN;
-            obj.etc = struct('pos', pos, 'pos0', pos0);
-            
-            % remove duplicates
-            pos = pos(exitflag>0,:);
-            fval = fval(exitflag>0);
-            parent = zeros(size(pos,1),1);
-            for k1 = 1 : size(pos,1)
-                for k2 = k1+1 : size(pos,1)
-                    dist = sqrt(sum((pos(k1,:) - pos(k2,:)).^2,2));
-                    if dist < 1
-                        if fval(k1) < fval(k2)
-                            parent(k2) = k1;
-                        else
-                            parent(k1) = k2;
-                        end
+                    nsols = nsols + 1;
+                    pos(nsols,:) = x;
+                    fval(nsols,:) = fv;
+                    sol_x0(nsols,:) = pos0(k,:);
+                    
+                catch ME
+                    if ~strcmp(ME.identifier, 'FastPursuit:No_solution') && ...
+                       ~strcmp(ME.identifier, 'optim:sqpInterface:UsrObjUndefAtX0')
+                        rethrow(ME)
                     end
                 end
             end
-            pos = pos(parent==0,:);
-            fval = fval(parent==0);
+            
+            if nsols > 0
+                obj.etc = struct('pos', pos, 'pos0', sol_x0);
+
+                % remove duplicates
+                % uidx points to the unique points
+                [~, ~, uidx] = unique(round(pos / (5*obj.dist_tol)) * 5 *obj.dist_tol, 'rows');
+                for k = 1 : max(uidx)
+                    fpos(k,:) = mean(pos(uidx==k,:), 1);
+                    ffval(k,1) = mean(fval(uidx==k), 1);
+                end
+                pos = fpos;
+                fval = ffval;
+            else
+                pos = zeros(0, 2);
+                fval = zeros(0, 1);
+            end
             
             % find lost tracks
-            costOfNonAssignment = 7;
+            costOfNonAssignment = 2;
             costMatrix = zeros(length(obj.tracks), size(pos, 1));
             for k1 = 1 : length(obj.tracks)
                 for k2 = 1 : size(pos, 1)
@@ -220,63 +140,75 @@ classdef Planner2D_fast < handle
             for k = 1 : size(unassignedTracks,1)
                 obj.tracks(unassignedTracks(k)).count = obj.tracks(unassignedTracks(k)).count + 1;
             end
-            rows = [obj.tracks.count] <= 1;
+            rows = [obj.tracks.count] <= 5;  % remove tracks gone for 5 loops
             obj.tracks = obj.tracks(rows);
             for k = 1 : size(unassignedDetections,1)
                 obj.tracks(end+1) = struct('pos', pos(unassignedDetections(k),:), ...
                     'cost', fval(unassignedDetections(k)), 'count', 0); 
             end
             
+            % assign best track for each pursuer
+            if length(obj.tracks) > 1
+                [~, iscost] = sort([obj.tracks.cost]);
+                iscost((length(obj.p)+1):end) = [];
+                for k1 = 1 : length(iscost) % loop track
+                    for k2 = 1 : length(obj.p) % loop pursuer
+                        costmat(k1,k2) = 2 * obj.tracks(iscost(k1)).cost + ...
+                            find_path(obj.m, obj.tp(k2), obj.tracks(iscost(k1)).pos) / obj.p(k2).vmax;
+                    end
+                end
+                asstracks = assignDetectionsToTracks(costmat, 1e5)
+                asstracks = iscost(asstracks(:,1));
+                asstracks(end+1:length(obj.p)) = iscost(1);
+            else
+                asstracks = ones(length(obj.p), 1);
+            end
+            
             % update initial guess for next step
             obj.x0 = cat(1, obj.tracks(:).pos);
             fval = cat(1, obj.tracks(:).cost);
             
-            x = obj.x0;
+%             asstracks
+            x = cat(1, obj.tracks(asstracks).pos);
         end
         
         function [f, gradf] = objfungrad(obj, x)
+            % path distance to target
             [f, ~, gradf] = find_path(obj.m, obj.tg, x);
             gradf = -gradf;
         end
 
-        function [c, ceq, DC, DCeq] = confungrad(obj, x)
-            [cp, ~, vp] = find_path(obj.m, obj.tp, x);
+        function [c, ceq, DC, DCeq, idx] = confungrad(obj, x)
+            % (path distance from 
             [ce, ~, ve] = find_path(obj.m, obj.te, x);
-
+            
+            cpnorm = Inf;
+            vpnorm = [1, 0];
+            idx = 1;
+            for k = 1 : length(obj.tp)
+                [cpp, ~, vpp] = find_path(obj.m, obj.tp(k), x);
+                
+                if cpp/obj.p(k).vmax < cpnorm
+                    cpnorm = cpp / obj.p(k).vmax;
+                    vpnorm = vpp / obj.p(k).vmax;
+                    idx = k;
+                end
+            end
+            
             ceq = [];
-            c = -(cp/obj.p.vmax - ce/obj.e.vmax);
+            c = ce/obj.e.vmax - cpnorm;
             DCeq = [];
-            DC = (vp/obj.p.vmax - ve/obj.e.vmax)';
+            DC = -(ve/obj.e.vmax - vpnorm)';
         end
         
         function [pos, fval, exitflag, count] = search_intercept(obj, pos0)
 
-            if isinf( find_path(obj.m, obj.te, pos0) ) || isinf( find_path(obj.m, obj.tg, pos0) ) || ...
-                    isnan(confungrad(obj, pos0))
-                pos = pos0;
-                exitflag = 0;
-                fval = Inf;
-                count = [0, 0];
-                return
-            end
-            
-            [pos, fval, exitflag, output] = fmincon(@(x) objfungrad(obj,x), pos0,[],[],[],[],obj.m.lims([1 3]), obj.m.lims([2 4]), @(x)confungrad(obj,x), obj.opt);
+            [pos, fval, exitflag, output] = fmincon(@(x) objfungrad(obj,x), ...
+                pos0,[],[],[],[],obj.m.lims([1 3]), obj.m.lims([2 4]), @(x)confungrad(obj,x), obj.opt);
             count = [output.funcCount, output.iterations];
             
-            if confungrad(obj, pos) > 1
-                exitflag = 0;
-            
-            elseif obj.e.vmax > obj.p.vmax
-                [ce, ke, ve] = find_path(obj.m, obj.te, pos);
-                [cp, kp, vp] = find_path(obj.m, obj.tp, pos);
-                
-                b = sqrt(sum((obj.te.pos(ke,:) - pos).^2)) - (obj.tp.pos(kp,:) - pos) * ve';
-                a = abs((obj.tp.pos(kp,:) - pos) * [ve(2); -ve(1)]);
- 
-                if acosd(vp * ve') < 90 && (obj.te.cumcost(ke) + b)/obj.e.vmax > (obj.tp.cumcost(kp) + a)/obj.p.vmax
-                    exitflag = 0;
-                end
-            end
+            assert(exitflag > 0, 'FastPursuit:No_solution', ...
+                        'negative exitflag')
         end
         
         function [Hout, H, Hp, He] = hessianfcn(obj, x, lambda)
@@ -312,9 +244,24 @@ classdef Planner2D_fast < handle
                 obj.h(4) = scatter(zeros(2,1), zeros(2,1), [1e-5;1e-5], [1, 0.5, 0], '+', 'linewidth', 1.5);
                 obj.h(2) = scatter(zeros(2,1), zeros(2,1), [1e-5;1e-5], [1, 0.5, 0], 'linewidth', 1.5);
                 obj.h(3) = scatter(obj.gpos(1), obj.gpos(2), 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3);
+                
+                
+                ds = min(diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))) / 50;
+                x = obj.m.lims(1) : ds : obj.m.lims(2);
+                y = obj.m.lims(3) : ds : obj.m.lims(4);
+                [xg, yg] = meshgrid(x, y);
+                c = zeros(length(y), length(x));
+                for k1 = 1 : length(x)
+                    for k2 = 1 : length(y)
+                        c(k2,k1) = find_path(obj.m, obj.tg, [x(k1), y(k2)]);
+                    end
+                end
+                contour(xg, yg, c);
             end
             
-            plot(obj.p)
+            for k = 1 : length(obj.p)
+            plot(obj.p(k))
+            end
             plot(obj.e)
 %             set(obj.h(1), 'XData', obj.x0(:,1), 'YData', obj.x0(:,2))
             

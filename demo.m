@@ -1,10 +1,71 @@
+clear
+t = tcpip('141.219.125.154', 80);
+
+%%
+fopen(t)
+
+c = natnet();
+c.HostIP = '141.219.122.21';
+c.ClientIP = '141.219.122.21';
+c.connect()
+
+% c.disconnect()
+cushion: 23.8
+
+% stage dimension: 95.8*240.5
+0, 0
+0, 95.8
+95.8, 240.5
+0, 240.5
+0, 0
+
+% first cushion closest to window:
+% 23.8*23.8 lower right corner align with the black tape
+67-23.8, 36.7
+67, 36.7
+67, 36.7+23.8
+67-23.8, 36.7+23.8
+67-23.8, 36.7
+
+% force plate hole: 23.8 * 26.8
+13.2, 107
+13.2+26.8, 107
+13.2+26.8, 107+23.8
+13.2, 107+23.8
+13.2, 107
+
+% rectangular cushion: 17.8*4
+% door end aligns with the second crew from door side
+24, 31.4+107+23.8
+24+4, 31.4+107+23.8
+24+4, 31.4+107+23.8+17.8
+24, 31.4+107+23.8+17.8
+24, 31.4+107+23.8
+
+% last cushion: 23.8*23.8
+
+
+
+%%
+fprintf(t, '0r 0r')
+
+if (fgetl(t) > 0)
+    fgetl(t)
+else
+    fprintf('Disconnected');
+end
+
+%%
+fclose(t)
+
+%%
 mapfile = 'maze';
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 
 dt = 0.1;
 p = Agent2D('pos', [-3.7031   -0.8438], 'yaw', 0, 'vmax', 5, 'wmax', 10, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+    'hb', t, 'hc', c, 'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 e = Agent2D('pos', [9.7031   -6.5625], 'yaw', 2, 'vmax', 5, 'wmax', 10, 'dt', dt, 'color', [1 0.3 0.3], ...
     'shape', [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
 
