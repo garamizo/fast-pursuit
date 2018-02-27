@@ -236,27 +236,29 @@ close all
 
 th = linspace(0, 2*pi, 15)';
 
-agent_positions = [ 1.4862      -0.5248
-                    -2.1180     0.8210
-                    2.5         -0.5
-                    2.5         0.8
-                    1.5         0.9
-                    1.5         -0.5
-                    3.5         -0.5 ];
-mapfile = 'lab_map';
-shape = [cos(th), sin(th)] * 0.1;
-vmax = 0.5;
-
 % agent_positions = [ 1.4862      -0.5248
-%                     -12.1523    6.3158
-%                     -1.2688   -3.3271
-%                       -12.3778   -8.4023
-%                         0.6485   -8.3459
-%                         8.3741   -5.1880
-%                        10.2350    3.4398 ];
-% mapfile = 'maze';
-% shape = [cos(th), sin(th)] * 0.5;
-% vmax = 2;
+%                     -2.1180     0.8210
+%                     2.5         -0.5
+%                     2.5         0.8
+%                     1.5         0.9
+%                     1.5         -0.5
+%                     3.5         -0.5 ];
+% mapfile = 'lab_map';
+% shape = [cos(th), sin(th)] * 0.1;
+% vmax = 0.5;
+% phack = [0, -30, 100, -50];  % pointer hack
+
+agent_positions = [ 1.4862      -0.5248
+                    -12.1523    6.3158
+                    -1.2688   -3.3271
+                      -12.3778   -8.4023
+                        0.6485   -8.3459
+                        8.3741   -5.1880
+                       10.2350    3.4398 ];
+mapfile = 'maze';
+shape = [cos(th), sin(th)] * 0.5;
+vmax = 2;
+phack = [0, -30, 30, 30];  % pointer hack
 
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
@@ -315,8 +317,8 @@ for k = 1 : 3000
 
     ppix = get(0, 'PointerLocation'); % pointer absolute location (X, Y) [px]
     mpix = get(gcf, 'position').*[1 1 0 0] + get(gca, 'Position');
-    ppos = [interp1([mpix(1), mpix(1)+mpix(2)-30], map.lims(1:2), ppix(1), 'linear', 'extrap'), ...
-        interp1([mpix(3)+100, mpix(3)+mpix(4)-50], map.lims(3:4), ppix(2), 'linear', 'extrap')];
+    ppos = [interp1([mpix(1), mpix(1)+mpix(2)]+phack(1:2), map.lims(1:2), ppix(1), 'linear', 'extrap'), ...
+        interp1([mpix(3), mpix(3)+mpix(4)]+phack(3:4), map.lims(3:4), ppix(2), 'linear', 'extrap')];
     set(hh, 'XData', ppos(1), 'YData', ppos(2))
     set_plan(e, [e.pos; ppos], 100);
     plot(e.ctrl)
@@ -366,7 +368,7 @@ for k = 1 : 3000
         writeVideo(v, frame);
     end
 end
-fprintf('Execution time: %.1f ms\n', toc * 1000 / k)
+fprintf('Execution time: %.1f ms\n', toc(t0) * 1000 / k)
 
 if record
     close(v)

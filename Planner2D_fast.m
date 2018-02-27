@@ -52,10 +52,17 @@ classdef Planner2D_fast < handle
             obj.tp = grow_tree(obj.m, obj.gpos);
             
 %             obj.opt = optimoptions(@fmincon,'Algorithm','interior-point', 'display', 'off');
-%             obj.opt = optimoptions(obj.opt,'SpecifyObjectiveGradient',true,'SpecifyConstraintGradient',true, ...
-%                 'MaxIterations', 100, 'MaxFunctionEvaluations', 500, 'StepTolerance', 0.1e-3, ...
-%                 'TypicalX', [10 10], 'ObjectiveLimit', 0, 'OptimalityTolerance', 100e-3, ...
-%                 'ConstraintTolerance', 100e-3, 'HessianFcn', @(x,lambda) hessianfcn(obj, x, lambda));
+%             obj.opt = optimoptions(obj.opt, ...
+%                 'SpecifyObjectiveGradient', true, ...
+%                 'SpecifyConstraintGradient',true, ...
+%                 'MaxIterations', 10, ...
+%                 'MaxFunctionEvaluations', 50, ...
+%                 'StepTolerance', obj.dist_tol / 100, ...
+%                 'TypicalX', [diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))] / 2, ...
+%                 'ObjectiveLimit', 0, ...
+%                 'OptimalityTolerance', obj.dist_tol / 10, ...
+%                 'ConstraintTolerance', obj.e.dt / 10, ...
+%                 'HessianFcn', @(x,lambda) hessianfcn(obj, x, lambda));
             
             obj.opt = optimoptions(@fmincon,'Algorithm','sqp', 'display', 'off');
             obj.opt = optimoptions(obj.opt, ...
@@ -106,6 +113,8 @@ classdef Planner2D_fast < handle
                     
                 catch ME
                     if ~strcmp(ME.identifier, 'FastPursuit:No_solution') && ...
+                       ~strcmp(ME.identifier, 'optimlib:sqpInterface:UsrObjUndefAtX0') && ...
+                       ~strcmp(ME.identifier, 'optim:barrier:UsrObjUndefAtX0') && ...
                        ~strcmp(ME.identifier, 'optim:sqpInterface:UsrObjUndefAtX0')
                         rethrow(ME)
                     end
@@ -223,14 +232,25 @@ classdef Planner2D_fast < handle
             x = x';
             
             [~, k] = find_path(obj.m, obj.tg, x);
-            [~, kp] = find_path(obj.m, obj.tp, x);
             [~, ke] = find_path(obj.m, obj.te, x);
 
             r = x - obj.tg.pos(k,:); % (x0,y0) - (x,y)
             rn = sqrt(r * r'); % scalar r
             H = (eye(2)*rn^2 - r' * r) / rn^3;
             
-            r = x - obj.tp.pos(kp,:); % (x0,y0) - (x,y)
+            imin = 1;  % pursuer closest to x
+            cmin = Inf;  % minimum cost for pursuer imin
+            kpi = 1;
+            for k = 1 : length(obj.p)
+                [c, kp] = find_path(obj.m, obj.tp, x);
+                if c < cmin
+                    imin = k;
+                    cmin = c;
+                    kpi = kp;
+                end
+            end
+                
+            r = x - obj.tp(imin).pos(kpi,:); % (x0,y0) - (x,y)
             rn = sqrt(r * r'); % scalar r
             Hp = (eye(2)*rn^2 - r' * r) / rn^3;
             
