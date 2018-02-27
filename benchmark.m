@@ -98,76 +98,6 @@ toc * 1000 / k
 figure
 plot_tree(map, tr)
 
-
-%% trimmed tree growth
-% 2.7 ms for maze
-
-dt = 0.1;
-p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 1, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'yaw', 2, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 1, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'yaw', 0.5, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-
-% plot(map)
-% scatter(p.pos(end,1), p.pos(end,2), 400, [0.3 0.3 1], 'filled', 'MarkerFaceAlpha', 0.3)
-% scatter(e.pos(end,1), e.pos(end,2), 400, [1 0.3 0.3], 'filled', 'MarkerFaceAlpha', 0.3)
-% scatter(0.8177, -1.1842, 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3)
-
-pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [0.8177   -1.1842]);
-pl.tp = grow_tree(map, pl.p.pos);
-pl.te = grow_trim_tree(pl, pl.tp, e.pos);
-
-figure
-plot(pl)
-% plot_tree(map, pl.tp)
-plot_tree(map, pl.te, [1 0.5 0.5])
-
-% step(pl)
-
-%%
-plot(map)
-scatter(p.pos(end,1), p.pos(end,2), 400, [0.3 0.3 1], 'filled', 'MarkerFaceAlpha', 0.3)
-scatter(e.pos(end,1), e.pos(end,2), 400, [1 0.3 0.3], 'filled', 'MarkerFaceAlpha', 0.3)
-scatter(pl.gpos(1), pl.gpos(2), 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3)
-
-
-pl.tp = grow_tree(map, p.pos);
-
-% plot(pl)
-% te = grow_tree(map, e.pos);
-
-%%
-plot(map)
-scatter(p.pos(end,1), p.pos(end,2), 400, [0.3 0.3 1], 'filled', 'MarkerFaceAlpha', 0.3)
-scatter(e.pos(end,1), e.pos(end,2), 400, [1 0.3 0.3], 'filled', 'MarkerFaceAlpha', 0.3)
-scatter(pl.gpos(1), pl.gpos(2), 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3)
-
-
-trout = grow_trim_tree(pl, pl.tp, e.pos);
-% trout2 = grow_trim_tree(pl, te, p.pos);
-
-
-
-%%
-pos = pos1(find(~col,100),:);
-clear c1 c2
-tic
-for k = 1 : size(pos,1)
-    tr = grow_trim_tree(pl, tp, pos(k,:));
-end
-fprintf('Execution time: %.2f ms\n', toc * 1000 / k)
-
-% tp.cumcost = tp.cumcost / p.vmax;
-% te.cumcost = te.cumcost / e.vmax;
-% trout.cumcost = trout.cumcost / e.vmax;
-
-% close all
-figure, plot_tree(map, tr, [0 0 0.8])
-% figure, plot_tree(map, te, [0.8 0 0])
-% figure, plot_tree(map, trout, [0.8 0 0])
-% hold on, plot_tree(map, trout2, [0 0 0.8])
-
-
 %% test speed of find_path
 % 0.18 (before 0.15) ms for maze
 % 0.03 ms for simple
@@ -209,6 +139,57 @@ fprintf('Execution time: %.2f ms\n', toc * 1000 / size(x0,1))
 
 figure, plot(pl)
 
+%% Planner step
+close all
+th = linspace(0, 2*pi, 15)';
+
+% agent_positions = [ 1.4862      -0.5248
+%                     -2.1180     0.8210
+%                     2.5         -0.5
+%                     2.5         0.8
+%                     1.5         0.9
+%                     1.5         -0.5
+%                     3.5         -0.5 ];
+% mapfile = 'lab_map';
+% shape = [cos(th), sin(th)] * 0.1;
+% vmax = 0.5;
+
+agent_positions = [ 1.4862      -0.5248
+                    -12.1523    6.3158
+                    -1.2688   -3.3271
+                      -12.3778   -8.4023
+                        0.6485   -8.3459
+                        8.3741   -5.1880
+                       10.2350    3.4398 ];
+mapfile = 'maze';
+shape = [cos(th), sin(th)] * 0.5;
+vmax = 2;
+
+sdata = load(fullfile('maps', mapfile));
+map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
+dt = 0.1;
+
+e = Agent2D('pos', [-12.0469    2.6250], 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+p = Agent2D('pos', [5.8594    3.0937], 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+% p(2) = Agent2D('pos', [2.7656   -8.1563], 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+%     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+% p(3) = Agent2D('pos', agent_positions(5,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+%     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+% p(4) = Agent2D('pos', agent_positions(6,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+%     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+% p(5) = Agent2D('pos', agent_positions(7,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+%     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+
+pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', agent_positions(1,:));
+
+% initial assessment
+x = step(pl);
+
+plot_constraint(pl)
+
+% plot(pl)
 
 %%
 med = (p.pos + e.pos)/2;
@@ -345,11 +326,19 @@ for k = 1 : 3000
     
 %     pl.gpos = interp1(K, GPOS, 1+0*min(k,K(end)), 'linear');
 
-    step(e);
+    p0 = step(e);
+    if collide(map, p0, e.pos)
+        fprintf('collision!\n')
+        e.pos = p0;
+    end
     plot(e)
     
     for k2 = 1 : length(p)
-        step(p(k2));
+        p0 = step(p(k2));
+        if collide(map, p0, p(k2).pos)
+            fprintf('collision!\n')
+            p(k2).pos = p0;
+        end
         plot(p(k2))
         dist(k2) = sqrt(sum((e.pos - p(k2).pos).^2));
     end

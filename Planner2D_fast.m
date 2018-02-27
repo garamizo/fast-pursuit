@@ -51,32 +51,32 @@ classdef Planner2D_fast < handle
             
             obj.tp = grow_tree(obj.m, obj.gpos);
             
-            obj.opt = optimoptions(@fmincon,'Algorithm','interior-point', 'display', 'off');
-            obj.opt = optimoptions(obj.opt, ...
-                'SpecifyObjectiveGradient', true, ...
-                'SpecifyConstraintGradient',true, ...
-                'MaxIterations', 10, ...
-                'MaxFunctionEvaluations', 50, ...
-                'StepTolerance', obj.dist_tol / 10, ...
-                'TypicalX', [diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))] / 2, ...
-                'ObjectiveLimit', 0, ...
-                'OptimalityTolerance', obj.dist_tol / 10, ...
-                'ConstraintTolerance', obj.e.dt / 10, ...
-                'FunctionTolerance', obj.dist_tol / 0.1, ...
-                'HessianFcn', @(x,lambda) hessianfcn(obj, x, lambda));
-            
-%             obj.opt = optimoptions(@fmincon,'Algorithm','sqp', 'display', 'off');
+%             obj.opt = optimoptions(@fmincon,'Algorithm','interior-point', 'display', 'off');
 %             obj.opt = optimoptions(obj.opt, ...
-%                         'SpecifyObjectiveGradient', true, ...
-%                         'SpecifyConstraintGradient', true, ...
-%                         'MaxIterations', 10, ...
-%                         'MaxFunctionEvaluations', 50, ...
-%                         'StepTolerance', obj.dist_tol / 100, ...
-%                         'TypicalX', [diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))] / 2, ...
-%                         'ObjectiveLimit', 0, ...
-%                         'OptimalityTolerance', obj.dist_tol / 10, ...
-%                         'ConstraintTolerance', obj.e.dt / 10, ...
-%                         'HessianApproximation', 'lbfgs');
+%                 'SpecifyObjectiveGradient', true, ...
+%                 'SpecifyConstraintGradient',true, ...
+%                 'MaxIterations', 10, ...
+%                 'MaxFunctionEvaluations', 50, ...
+%                 'StepTolerance', obj.dist_tol / 10, ...
+%                 'TypicalX', [diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))] / 2, ...
+%                 'ObjectiveLimit', 0, ...
+%                 'OptimalityTolerance', obj.dist_tol / 10, ...
+%                 'ConstraintTolerance', obj.e.dt / 10, ...
+%                 'FunctionTolerance', obj.dist_tol / 0.1, ...
+%                 'HessianFcn', @(x,lambda) hessianfcn(obj, x, lambda));
+            
+            obj.opt = optimoptions(@fmincon,'Algorithm','sqp', 'display', 'off');
+            obj.opt = optimoptions(obj.opt, ...
+                        'SpecifyObjectiveGradient', true, ...
+                        'SpecifyConstraintGradient', true, ...
+                        'MaxIterations', 10, ...
+                        'MaxFunctionEvaluations', 50, ...
+                        'StepTolerance', obj.dist_tol / 100, ...
+                        'TypicalX', [diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))] / 2, ...
+                        'ObjectiveLimit', 0, ...
+                        'OptimalityTolerance', obj.dist_tol / 10, ...
+                        'ConstraintTolerance', obj.e.dt / 10, ...
+                        'HessianApproximation', 'lbfgs');
             
         end
         
@@ -116,6 +116,8 @@ classdef Planner2D_fast < handle
                     if ~strcmp(ME.identifier, 'FastPursuit:No_solution') && ...
                        ~strcmp(ME.identifier, 'optimlib:sqpInterface:UsrObjUndefAtX0') && ...
                        ~strcmp(ME.identifier, 'optim:barrier:UsrObjUndefAtX0') && ...
+                       ~strcmp(ME.identifier, 'optim:barrier:UsrNonlConstrUndefAtX0') && ...
+                       ~strcmp(ME.identifier, 'optimlib:sqpInterface:UsrNonlConstrUndefAtX0') && ...
                        ~strcmp(ME.identifier, 'optim:sqpInterface:UsrObjUndefAtX0')
                         rethrow(ME)
                     end
@@ -141,7 +143,7 @@ classdef Planner2D_fast < handle
             end
             
             % find lost tracks
-            costOfNonAssignment = 2;
+            costOfNonAssignment = 1e10;
             costMatrix = zeros(length(obj.tracks), size(pos, 1));
             for k1 = 1 : length(obj.tracks)
                 for k2 = 1 : size(pos, 1)
@@ -150,6 +152,7 @@ classdef Planner2D_fast < handle
             end
             [assignments,unassignedTracks,unassignedDetections] = ...
                 assignDetectionsToTracks( costMatrix,costOfNonAssignment);
+            % Update tracks
             for k = 1 : size(assignments,1)
                 obj.tracks(assignments(k,1)).pos = pos(assignments(k,2),:);
                 obj.tracks(assignments(k,1)).cost = fval(assignments(k,2));
@@ -158,8 +161,10 @@ classdef Planner2D_fast < handle
             for k = 1 : size(unassignedTracks,1)
                 obj.tracks(unassignedTracks(k)).count = obj.tracks(unassignedTracks(k)).count + 1;
             end
+            % Remove lost tracks
             rows = [obj.tracks.count] <= 5;  % remove tracks gone for 5 loops
             obj.tracks = obj.tracks(rows);
+            % Create new tracks
             for k = 1 : size(unassignedDetections,1)
                 obj.tracks(end+1) = struct('pos', pos(unassignedDetections(k),:), ...
                     'cost', fval(unassignedDetections(k)), 'count', 0); 
@@ -203,7 +208,7 @@ classdef Planner2D_fast < handle
             cpnorm = Inf;
             vpnorm = [1, 0];
             idx = 1;
-            for k = 1 : length(obj.tp)
+            for k = 1 : length(obj.p)
                 [cpp, ~, vpp] = find_path(obj.m, obj.tp(k), x);
                 
                 if cpp/obj.p(k).vmax < cpnorm
@@ -217,6 +222,10 @@ classdef Planner2D_fast < handle
             c = ce/obj.e.vmax - cpnorm;
             DCeq = [];
             DC = -(ve/obj.e.vmax - vpnorm)';
+            
+            if abs(c) > 5
+                c = NaN;
+            end
         end
         
         function [pos, fval, exitflag, count] = search_intercept(obj, pos0)
@@ -261,6 +270,97 @@ classdef Planner2D_fast < handle
 
             Hout = (H - lambda.ineqnonlin*(Hp - He));
 %             lambda
+        end
+        
+        
+        function plot_constraint2(obj)
+            
+            ds = min(diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))) / 70;
+            x = obj.m.lims(1) : ds : obj.m.lims(2);
+            y = obj.m.lims(3) : ds : obj.m.lims(4);
+            [xg, yg] = meshgrid(x, y);
+            
+            % objective
+            obj_mat = zeros(length(y), length(x));
+            for k1 = 1 : length(x)
+                for k2 = 1 : length(y)
+                    obj_mat(k2,k1) = objfungrad(obj, [x(k1), y(k2)]);
+                end
+            end
+            
+            pp = obj.p;
+            ttp = obj.tp;
+            % constraint with p1
+            obj.p = pp(1);
+            obj.tp = ttp(1);
+            con1_mat = zeros(length(y), length(x));
+            for k1 = 1 : length(x)
+                for k2 = 1 : length(y)
+                    con1_mat(k2,k1) = confungrad(obj, [x(k1), y(k2)]);
+                end
+            end
+            
+            % constraint with p2
+            obj.p = pp(2);
+            obj.tp = ttp(2);
+            con2_mat = zeros(length(y), length(x));
+            for k1 = 1 : length(x)
+                for k2 = 1 : length(y)
+                    con2_mat(k2,k1) = confungrad(obj, [x(k1), y(k2)]);
+                end
+            end
+            
+            obj.p = pp;
+            obj.tp = ttp;
+            
+            figure, plot(obj.m)
+            hold on, contour(xg, yg, con1_mat, 'r:', ...
+                'ShowText', 'on', 'LineWidth', 1.5, 'LevelList', [-2:1:-1, 1:1:2]);
+            contour(xg, yg, con1_mat, [0, 100], 'r:', 'ShowText', 'off', 'LineWidth', 3);
+            hold on, contour(xg, yg, con2_mat, 'b-.', ...
+                'ShowText', 'on', 'LineWidth', 1.5, 'LevelList', [-2:1:-1, 1:1:2]);
+            contour(xg, yg, con2_mat, [0, 100], 'b-.', 'ShowText', 'off', 'LineWidth', 3);
+            
+            contour(xg, yg, obj_mat, 'ShowText', 'off');
+            scatter(obj.gpos(1), obj.gpos(2), 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3);
+            
+            plot(obj.e)
+            for k = 1 : length(obj.p)
+                plot(obj.p(k))
+            end
+            
+            track_pos = cat(1, obj.tracks.pos);
+            scatter(track_pos(:,1), track_pos(:,2), 200, [1, 0.5, 0], 'o', 'linewidth', 2)
+            
+        end
+        
+        function plot_constraint(obj)
+            ds = min(diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))) / 70;
+            x = obj.m.lims(1) : ds : obj.m.lims(2);
+            y = obj.m.lims(3) : ds : obj.m.lims(4);
+            [xg, yg] = meshgrid(x, y);
+            con_mat = zeros(length(y), length(x));
+            obj_mat = zeros(length(y), length(x));
+            for k1 = 1 : length(x)
+                for k2 = 1 : length(y)
+                    con_mat(k2,k1) = confungrad(obj, [x(k1), y(k2)]);
+                    obj_mat(k2,k1) = objfungrad(obj, [x(k1), y(k2)]);
+                end
+            end
+            figure, plot(obj.m)
+            hold on, contour(xg, yg, con_mat, ':', 'LineColor', [1, 0.5, 0], ...
+                'ShowText', 'on', 'LineWidth', 1.5, 'LevelList', [-8:2:-2, 2:2:8]);
+            contour(xg, yg, con_mat, [0, 100], '', 'LineColor', [1, 0.5, 0], 'ShowText', 'off', 'LineWidth', 3);
+            contour(xg, yg, obj_mat, 'ShowText', 'off');
+            scatter(obj.gpos(1), obj.gpos(2), 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3);
+            
+            plot(obj.e)
+            for k = 1 : length(obj.p)
+                plot(obj.p(k))
+            end
+            
+            track_pos = cat(1, obj.tracks.pos);
+            scatter(track_pos(:,1), track_pos(:,2), 200, [0, 0.0, 0], 'o', 'linewidth', 2)
         end
             
         function plot(obj)
