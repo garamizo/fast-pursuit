@@ -11,7 +11,7 @@ classdef Map2D_fast < handle
         gd_safe
         kpos % keypoints
         cost
-        obstacle_dilation = 0.01
+        obstacle_dilation = 0.03
     end
     
     methods
@@ -186,7 +186,7 @@ classdef Map2D_fast < handle
             for k = 1 : length(map.obs)
 %                 plot(map.obs{k}(:,1), map.obs{k}(:,2), '.-')
                 h = fill(map.obs{k}(:,1), map.obs{k}(:,2), 'k');
-                set(h, 'FaceAlpha', 0.2, 'LineStyle', 'none');
+                set(h, 'FaceAlpha', 0.6, 'LineStyle', 'none');
                 hold on
             end
             
@@ -208,7 +208,7 @@ classdef Map2D_fast < handle
             
             set(gca,'xticklabel',[])
             set(gca,'yticklabel',[])
-%             set(gca, 'units', 'pixels')
+            set(gca, 'units', 'pixels')
 
 %             print -clipboard -dbitmap
         end
@@ -292,11 +292,11 @@ classdef Map2D_fast < handle
                             tr.pos(k,1) > map.lims(1) + 1 && tr.pos(k,1) < map.lims(2) - 1 && ...
                             tr.pos(k,2) > map.lims(3) + 1 && tr.pos(k,2) < map.lims(4) - 1
                         
-                        pcount = -45;
+                        pcount = 60;
                         spc = 0.8 * [cosd(pcount), sind(pcount)];
                         txtloc(end+1,:) = tr.pos(k,1:2);
-%                         text(tr.pos(k,1)+spc(1), tr.pos(k,2)+spc(2), ...
-%                             sprintf('%.1f', tr.cumcost(k)), 'FontSize', 11, 'Color', [0 0 0])
+                        text(tr.pos(k,1)+spc(1), tr.pos(k,2)+spc(2), ...
+                            sprintf('%.1f', tr.cumcost(k)), 'FontSize', 10, 'Color', [0 0 0])
                         
                         txtloc2 = (tr.pos(k,:) + tr.pos(tr.parent(k),:))/2;
                         dist = sqrt(sum((tr.pos(k,:) - tr.pos(tr.parent(k),:)).^2));
@@ -305,8 +305,23 @@ classdef Map2D_fast < handle
                    
                     end
                 end
-                text(tr.pos(k,1), tr.pos(k,2), ['  ' num2str(k)])
+%                 text(tr.pos(k,1), tr.pos(k,2), ['  ' num2str(k)])
             end
+        end
+        
+        function plot_visibility(obj)
+            
+
+           figure, plot(obj)
+           for k1 = 1 : size(obj.kpos, 1)
+               for k2 = 1 : size(obj.kpos, 1)
+                   if isfinite(obj.cost(k1,k2))
+                       hh = plot(obj.kpos([k1 k2],1), obj.kpos([k1 k2],2), 'o-', 'color', [0.5 0.5 0.5], 'markersize', 4);
+                       hh.Color(4) = 0.25;
+                   end
+               end
+           end
+           
         end
         
         function [mincost, kend, vend, wpos, v0] = find_path(map, tr, pos)

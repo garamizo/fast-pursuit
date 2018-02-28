@@ -139,6 +139,13 @@ fprintf('Execution time: %.2f ms\n', toc * 1000 / size(x0,1))
 
 figure, plot(pl)
 
+%% Plot visibility
+mapfile = 'maze';
+
+sdata = load(fullfile('maps', mapfile));
+map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
+plot_visibility(map)
+
 %% Planner step
 close all
 th = linspace(0, 2*pi, 15)';
@@ -190,6 +197,40 @@ x = step(pl);
 plot_constraint(pl)
 
 % plot(pl)
+
+
+%% Plot tree
+mapfile = 'maze';
+th = linspace(0, 2*pi, 15)';
+shape = [cos(th), sin(th)] * 0.5;
+vmax = 2;
+
+sdata = load(fullfile('maps', mapfile));
+map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
+
+agent = Agent2D('pos', [-1.3594   -2.4375], 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+tree = grow_tree(map, agent.pos);
+
+close all
+plot_tree(map, tree)
+
+npos = [9.1406   -1.4063];
+candidate_pos = [7.76, 1.51
+    3.51, -7.01];
+link_cost = sqrt(sum((candidate_pos - npos).^2, 2));
+avg_pos = (candidate_pos + npos) / 2;
+
+plot(npos(1), npos(2), 'bo')
+plot([candidate_pos(1,1), npos(1)], [candidate_pos(1,2), npos(2)], 'b-')
+plot([candidate_pos(2,1), npos(1)], [candidate_pos(2,2), npos(2)], 'b--')
+text(avg_pos(:,1)+1, avg_pos(:,2), num2str(link_cost, '(%.1f)'))
+% text(npos(1)+1, npos(2), num2str(find_path(map, tree, npos), '%.1f'), 'FontSize', 13)
+text(npos(1)+1, npos(2), num2str(15.7, '%.1f'), 'FontSize', 13)
+
+text(agent.pos(1)-2.5, agent.pos(2)+0.2, 'R', 'FontSize', 13)
+text(npos(1)-2, npos(2)+0.2, 'D', 'FontSize', 13)
+
 
 %%
 med = (p.pos + e.pos)/2;
