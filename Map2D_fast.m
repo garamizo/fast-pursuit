@@ -11,7 +11,7 @@ classdef Map2D_fast < handle
         gd_safe
         kpos % keypoints
         cost
-        obstacle_dilation = 0.03
+        obstacle_dilation = 0.09
     end
     
     methods
@@ -186,7 +186,7 @@ classdef Map2D_fast < handle
             for k = 1 : length(map.obs)
 %                 plot(map.obs{k}(:,1), map.obs{k}(:,2), '.-')
                 h = fill(map.obs{k}(:,1), map.obs{k}(:,2), 'k');
-                set(h, 'FaceAlpha', 0.6, 'LineStyle', 'none');
+                set(h, 'FaceAlpha', 0.6);
                 hold on
             end
             
@@ -280,13 +280,13 @@ classdef Map2D_fast < handle
             plot(map)
             hold on
 %             plot(tr.pos(1,1), tr.pos(1,2), 'o', 'markersize', 20)
-            scatter(tr.pos(end,1), tr.pos(end,2), 400, color, 'filled', 'MarkerFaceAlpha', 0.3)
+            scatter(tr.pos(end,1), tr.pos(end,2), 100, 'b', 'filled', 'MarkerFaceAlpha', 0.5)
             scatter(tr.pos(tr.parent>0,1), tr.pos(tr.parent>0,2), 5, color, 'o', 'filled')
             
             for k = 1 : size(tr.pos,1)
                 if tr.parent(k) > 0
                     plot([tr.pos(k,1), tr.pos(tr.parent(k),1)], ...
-                        [tr.pos(k,2), tr.pos(tr.parent(k),2)], ':', 'color', color)
+                        [tr.pos(k,2), tr.pos(tr.parent(k),2)], '-', 'color', color)
                     
                     if all( sqrt(sum((txtloc - tr.pos(k,1:2)).^2, 2)) > 3) && ...
                             tr.pos(k,1) > map.lims(1) + 1 && tr.pos(k,1) < map.lims(2) - 1 && ...

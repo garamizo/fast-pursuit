@@ -118,26 +118,54 @@ quiver(pos(k,1), pos(k,2), v(1), v(2), 'linewidth', 2)
 %% test speed of intercept search
 % 12 ms for maze
 
-mapfile = 'lab_map';
+mapfile = 'maze';
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
+tree = map.grow_tree([-0.7969   -2.4375]);
 
-dt = 0.1;
-p = Agent2D('pos', [2.7970   -0.3792], 'vmax', 1, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'yaw', 2, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
-e = Agent2D('pos', [-2.1180    0.8210], 'vmax', 1, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'yaw', 0.5, 'shape', 0.1*[10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 7e-2);
+N = 1000;
+X0 = rand(N,2) .* (map.lims([2 4]) - map.lims([1 3])) + map.lims([1 3]);
+all_reachable = false;
+while ~all_reachable
+    for k = 1 : size(X0, 1)
+        reachable(k,1) = isfinite(find_path(map, tree, X0(k,:)));
+    end
+    X0(~reachable,:) = rand(sum(~reachable),2) .* (map.lims([2 4]) - map.lims([1 3])) + map.lims([1 3]);
+    all_reachable = all(reachable);
+end
+%%
 
-lims = [-2    2, -2    2];
-x0 = rand(100,2).*[map.lims(2)-map.lims(1), map.lims(4)-map.lims(3)] + map.lims([1 3]);
+th = linspace(0, 2*pi, 15)'; shape = [cos(th), sin(th)] * 1;
+n = 100;
+rate = zeros(n, 1);
+converge = zeros(n, 1);
+for k = 1 : n
+    dt = 0.1;
+    vmax = 1.5;
+    rows = randi(N, [4, 1]);
+    rowsN = randi(N, [n, 1]);
+    p(1) = Agent2D('pos', X0(rows(1),:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+        'yaw', 2, 'shape', shape);
+    p(2) = Agent2D('pos', X0(rows(2),:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+        'yaw', 2, 'shape', shape);
+    e = Agent2D('pos', X0(rows(3),:), 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
+        'yaw', 0.5, 'shape', shape);
+    x0 = X0(rowsN,:);
+    pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', X0(rows(4),:), 'x0', x0);
 
-pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', [1.4862   -0.5248], 'x0', x0(:,:));
+    tic
+    step(pl);
+    rate(k) = toc * 1000 / size(x0,1);
+    if ~isempty(pl.etc)
+        converge(k) = 100 * sum(isfinite(pl.etc.x(:,1))) / size(x0,1);
+    else
+        converge(k) = 0;
+    end
+    
+    fprintf('Execution time: %.2f ms\n', rate(k))
+end
 
-tic
-step(pl)
-fprintf('Execution time: %.2f ms\n', toc * 1000 / size(x0,1))
-
-figure, plot(pl)
+% figure, plot(pl), plot(p(1)), plot(p(2)), plot(e)
 
 %% Plot visibility
 mapfile = 'maze';
@@ -147,7 +175,7 @@ map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_cons
 plot_visibility(map)
 
 %% Planner step
-close all
+% close all
 th = linspace(0, 2*pi, 15)';
 
 % agent_positions = [ 1.4862      -0.5248
@@ -162,26 +190,28 @@ th = linspace(0, 2*pi, 15)';
 % vmax = 0.5;
 
 agent_positions = [ 1.4862      -0.5248
-                    -12.1523    6.3158
-                    -1.2688   -3.3271
+                    -12.1523    -2.8
+                    -2 3.5
                       -12.3778   -8.4023
                         0.6485   -8.3459
                         8.3741   -5.1880
                        10.2350    3.4398 ];
+                   
+
 mapfile = 'maze';
 shape = [cos(th), sin(th)] * 0.5;
-vmax = 2;
+vmax = 1.5;
 
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 dt = 0.1;
 
-e = Agent2D('pos', [-12.0469    2.6250], 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
+e = Agent2D('pos', agent_positions(2,:), 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-p = Agent2D('pos', [5.8594    3.0937], 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+p = Agent2D('pos', agent_positions(3,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-% p(2) = Agent2D('pos', [2.7656   -8.1563], 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
-%     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+p(2) = Agent2D('pos', agent_positions(5,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 % p(3) = Agent2D('pos', agent_positions(5,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
 %     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 % p(4) = Agent2D('pos', agent_positions(6,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
@@ -193,8 +223,19 @@ pl = Planner2D_fast('p', p, 'e', e, 'm', map, 'gpos', agent_positions(1,:));
 
 % initial assessment
 x = step(pl);
+figure, plot(pl)
+
+%%
 
 plot_constraint(pl)
+
+text(p(1).pos(1)+1, p(1).pos(2), 'P1')
+text(p(2).pos(1)+1, p(2).pos(2), 'P2')
+text(e.pos(1)+1, e.pos(2), 'E')
+text(pl.gpos(1)-0.5, pl.gpos(2), 'T')
+text(pl.tracks(1).pos(1)-2, pl.tracks(1).pos(2)-1, 'I_1')
+text(pl.tracks(2).pos(1)-2, pl.tracks(2).pos(2)-1, 'I_3')
+text(pl.tracks(3).pos(1)-2, pl.tracks(3).pos(2)-1, 'I_2')
 
 % plot(pl)
 
@@ -203,7 +244,7 @@ plot_constraint(pl)
 mapfile = 'maze';
 th = linspace(0, 2*pi, 15)';
 shape = [cos(th), sin(th)] * 0.5;
-vmax = 2;
+vmax = 1;
 
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
@@ -213,7 +254,21 @@ agent = Agent2D('pos', [-1.3594   -2.4375], 'vmax', vmax, 'dt', dt, 'color', [1 
 tree = grow_tree(map, agent.pos);
 
 close all
-plot_tree(map, tree)
+
+
+                ds = min(diff(map.lims(1:2)), diff(map.lims(3:4))) / 50;
+                x = map.lims(1) : ds : map.lims(2);
+                y = map.lims(3) : ds : map.lims(4);
+                [xg, yg] = meshgrid(x, y);
+                c = zeros(length(y), length(x));
+                for k1 = 1 : length(x)
+                    for k2 = 1 : length(y)
+                        c(k2,k1) = find_path(map, tree, [x(k1), y(k2)]);
+                    end
+                end
+                contour(xg, yg, c);
+                
+hold on, plot_tree(map, tree)
 
 npos = [9.1406   -1.4063];
 candidate_pos = [7.76, 1.51
@@ -221,15 +276,20 @@ candidate_pos = [7.76, 1.51
 link_cost = sqrt(sum((candidate_pos - npos).^2, 2));
 avg_pos = (candidate_pos + npos) / 2;
 
-plot(npos(1), npos(2), 'bo')
-plot([candidate_pos(1,1), npos(1)], [candidate_pos(1,2), npos(2)], 'b-')
-plot([candidate_pos(2,1), npos(1)], [candidate_pos(2,2), npos(2)], 'b--')
+h = plot(npos(1), npos(2), 'ko', 'MarkerFaceColor', [0 0 0])
+plot([candidate_pos(1,1), npos(1)], [candidate_pos(1,2), npos(2)], 'k-.')
+plot([candidate_pos(2,1), npos(1)], [candidate_pos(2,2), npos(2)], 'k--')
 text(avg_pos(:,1)+1, avg_pos(:,2), num2str(link_cost, '(%.1f)'))
 % text(npos(1)+1, npos(2), num2str(find_path(map, tree, npos), '%.1f'), 'FontSize', 13)
 text(npos(1)+1, npos(2), num2str(15.7, '%.1f'), 'FontSize', 13)
 
 text(agent.pos(1)-2.5, agent.pos(2)+0.2, 'R', 'FontSize', 13)
 text(npos(1)-2, npos(2)+0.2, 'D', 'FontSize', 13)
+
+p1 = [7.76, 1.51];
+p2 = [.8, -7.6];
+text(p1(1), p1(2), 'N_i')
+text(p2(1), p2(2), 'N_j')
 
 
 %%
@@ -259,24 +319,30 @@ close all
 th = linspace(0, 2*pi, 15)';
 
 % agent_positions = [ 1.4862      -0.5248
-%                     -2.1180     0.8210
-%                     2.5         -0.5
-%                     2.5         0.8
+%                     -1.4207    0.8781
+%                     2.1340    0.9581
+%     0.8424   -0.6421
 %                     1.5         0.9
 %                     1.5         -0.5
 %                     3.5         -0.5 ];
 % mapfile = 'lab_map';
 % shape = [cos(th), sin(th)] * 0.1;
-% vmax = 0.5;
+% vmax = 0.3;
 % phack = [0, -30, 100, -50];  % pointer hack
 
+% agent_positions = [ 1.4862      -0.5248
+%                     -12.2086    1.6917
+%                     -1.2688   -3.3271
+%                       -12.3778   -8.4023
+%                         0.6485   -8.3459
+%                         8.3741   -5.1880
+%                        10.2350    3.4398 ];
+%                    
 agent_positions = [ 1.4862      -0.5248
-                    -12.1523    6.3158
-                    -1.2688   -3.3271
-                      -12.3778   -8.4023
-                        0.6485   -8.3459
-                        8.3741   -5.1880
-                       10.2350    3.4398 ];
+    10.2350   -1.3534
+    -1.1560    7.5564
+   -4.2656   -3.4688];
+    
 mapfile = 'maze';
 shape = [cos(th), sin(th)] * 0.5;
 vmax = 2;
@@ -285,14 +351,14 @@ phack = [0, -30, 30, 30];  % pointer hack
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 dt = 0.1;
-capdist = min(diff(map.lims(1:2)), diff(map.lims(3:4))) / 15;
+capdist = min(diff(map.lims(1:2)), diff(map.lims(3:4))) / 10;
 
 e = Agent2D('pos', agent_positions(2,:), 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 p = Agent2D('pos', agent_positions(3,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
-p(2) = Agent2D('pos', agent_positions(4,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
+% p(2) = Agent2D('pos', agent_positions(4,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
+%     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 % p(3) = Agent2D('pos', agent_positions(5,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
 %     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 % p(4) = Agent2D('pos', agent_positions(6,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
@@ -330,37 +396,44 @@ plot(map), hold on
 hh = plot(0, 0, '^');
 hold on
 
+set_plan(e, [   e.pos
+                            8.4305    0.3383
+    3.9756   -7.3872
+   -2.7350   -7.7820
+   -2.9605   -6.8233
+    1.3816   -0.90239], 100);
+
 % close all
-clear dist
-time = zeros(3000);
+clear dist data
+time = zeros(3000, 1);
 t0 = tic;
 for k = 1 : 3000
     t12 = tic;
 
-    ppix = get(0, 'PointerLocation'); % pointer absolute location (X, Y) [px]
-    mpix = get(gcf, 'position').*[1 1 0 0] + get(gca, 'Position');
-    ppos = [interp1([mpix(1), mpix(1)+mpix(2)]+phack(1:2), map.lims(1:2), ppix(1), 'linear', 'extrap'), ...
-        interp1([mpix(3), mpix(3)+mpix(4)]+phack(3:4), map.lims(3:4), ppix(2), 'linear', 'extrap')];
-    set(hh, 'XData', ppos(1), 'YData', ppos(2))
-    set_plan(e, [e.pos; ppos], 100);
-    plot(e.ctrl)
+%     ppix = get(0, 'PointerLocation'); % pointer absolute location (X, Y) [px]
+%     mpix = get(gcf, 'position').*[1 1 0 0] + get(gca, 'Position');
+%     ppos = [interp1([mpix(1), mpix(1)+mpix(2)]+phack(1:2), map.lims(1:2), ppix(1), 'linear', 'extrap'), ...
+%         interp1([mpix(3), mpix(3)+mpix(4)]+phack(3:4), map.lims(3:4), ppix(2), 'linear', 'extrap')];
+%     set(hh, 'XData', ppos(1), 'YData', ppos(2))
+%     set_plan(e, [e.pos; ppos], 100);
+%     plot(e.ctrl)
         
-    if mod(k-1, 1) == 0
+    if mod(k-1, 20) == 0
         
         plot(pl)
         
-%         for k2 = 1 : length(p)
-%             set_plan(p(k2), pplan{k2}, 100);
-%             plot(p(k2).ctrl)
-%         end
+        for k2 = 1 : length(p)
+            set_plan(p(k2), pplan{k2}, 100);
+            plot(p(k2).ctrl)
+        end
 
         % start calculating new plan
         x = step(pl);
         if ~isempty(x)
             for k2 = 1 : length(p)
                 [~, ~, ~, pplan{k2}] = find_path(map, pl.tp(k2), x(k2,:));
-                set_plan(p(k2), pplan{k2}, 100);
-                plot(p(k2).ctrl)
+%                 set_plan(p(k2), pplan{k2}, 100);
+%                 plot(p(k2).ctrl)
             end
         end
     end
@@ -387,7 +460,14 @@ for k = 1 : 3000
     if sqrt(sum((e.pos - pl.gpos).^2)) < capdist || any(dist < capdist)
         break
     end
-%     data(k,:) = [p(1).pos, e.pos];
+    
+    tmp = NaN(1, 2);
+    if length(pl.tracks) == 1
+        tmp(1:2) = pl.tracks(1).pos;
+    elseif length(pl.tracks) >= 2
+        tmp = cat(2, pl.tracks(1:2).pos);
+    end
+    data(k,:) = [p(1).pos, e.pos, tmp];
     
     drawnow
     pause(dt- toc(t12))
@@ -404,7 +484,53 @@ if record
     close(v)
 end
 
-figure, plot(1./diff(time(1:k-1)), '.-')
+% figure, plot(1./diff(time(1:k-1)), '.-')
+
+%%
+p.color = [0.3 0.5 0.7];
+e.pos = agent_positions(2,:);
+p(1).pos = agent_positions(3,:);
+% p(2).pos = agent_positions(4,:);
+close all
+figure, plot(pl)
+plot(data(:,5), data(:,6), '-', 'linewidth', 5, 'color', [1, 0.5, 0, 0.5])
+plot(data(:,7), data(:,8), '-', 'linewidth', 5, 'color', [1, 0.5, 0, 0.5])
+% plot(data([1 end],7), data([1 end],8), '-', 'linewidth', 5, 'color', [1, 0.5, 0, 0.5])
+
+
+plot(data(:,1), data(:,2), '-', 'color', p.color)
+% plot(data(:,9), data(:,10), 'b-')
+plot(data(:,3), data(:,4), 'r-')
+
+text(p(1).pos(1)+1, p(1).pos(2), 'P')
+% text(p(2).pos(1)+0.15, p(2).pos(2), 'P2')
+text(e.pos(1)+1, e.pos(2), 'E')
+text(pl.gpos(1)-0.5, pl.gpos(2), 'T')
+
+text(data(end,7)-1.5, data(end,8)-1.2, 'I_{2}')
+text(data(1,7)-0.5, data(1,8)+2, 'I_{20}')
+text(data(end,5)+1, data(end,6)-1, 'I_{1}')
+text(data(1,5)+1.0, data(1,6), 'I_{10}')
+
+scatter(data(1,[5 7])', data(1,[6 8])', [200; 200], [1, 0.5, 0], 'linewidth', 1.5);
+scatter(data(end,[5 7])', data(end,[6 8])', [200; 200], [1, 0.5, 0], 'linewidth', 1.5);
+scatter(data(end,[5 ]), data(end,[6 ]), [200], [1, 0.5, 0], '+', 'linewidth', 1.5);
+scatter(data(1,[7 ]), data(1,[8 ]), [200], [1, 0.5, 0], '+', 'linewidth', 1.5);
+
+plot(data(21,1), data(21,2), 'b.', 'markersize', 15, 'color', p.color)
+plot(data(62,1), data(62,2), 'b.', 'markersize', 15, 'color', p.color)
+plot(data(21,3), data(21,4), 'r.', 'markersize', 15)
+plot(data(13,3), data(13,4), 'r.', 'markersize', 15)
+plot(data(62,3), data(62,4), 'r.', 'markersize', 15)
+
+text(data(21,1)-1.5, data(21,2), 't_2')
+text(data(21,3)+0.5, data(21,4)-1, 't_2')
+text(data(13,3)+0.7, data(13,4)+0.5, 't_1')
+text(data(62,3)+0.7, data(62,4)-0.8, 't_3')
+text(data(62,1)-1.5, data(62,2)+1, 't_3')
+
+
+
 
 % hold off
 % plot(diff(time(1:k-1)))

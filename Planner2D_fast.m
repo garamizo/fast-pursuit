@@ -15,7 +15,7 @@ classdef Planner2D_fast < handle
         tg
         
         x0
-        nx0 = 10
+        nx0 = 20
         
         tracks = repmat(struct('pos', [0, 0], 'cost', 0, 'count', 0), [0, 1])
         maxtracks = 5
@@ -45,9 +45,17 @@ classdef Planner2D_fast < handle
             end
             
             obj.dist_tol = min(diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))) / 20;
-            
             obj.tg = grow_tree(obj.m, obj.gpos);
+            
             obj.x0 = rand(obj.nx0,2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3]);
+            all_reachable = false;
+            while ~all_reachable
+                for k = 1 : size(obj.x0, 1)
+                    reachable(k,1) = isfinite(find_path(obj.m, obj.tg, obj.x0(k,:)));
+                end
+                obj.x0(~reachable,:) = rand(sum(~reachable),2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3]);
+                all_reachable = all(reachable);
+            end
             
             obj.tp = grow_tree(obj.m, obj.gpos);
             
@@ -69,8 +77,8 @@ classdef Planner2D_fast < handle
             obj.opt = optimoptions(obj.opt, ...
                         'SpecifyObjectiveGradient', true, ...
                         'SpecifyConstraintGradient', true, ...
-                        'MaxIterations', 10, ...
-                        'MaxFunctionEvaluations', 50, ...
+                        'MaxIterations', 50, ...
+                        'MaxFunctionEvaluations', 100, ...
                         'StepTolerance', obj.dist_tol / 100, ...
                         'TypicalX', [diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))] / 2, ...
                         'ObjectiveLimit', 0, ...
@@ -102,7 +110,7 @@ classdef Planner2D_fast < handle
             end
             
             % search N random points
-            N = 5;
+            N = 10;
             pos0 = [obj.x0 + 0.01*randn(size(obj.x0,1), 2)
                 rand(N-size(obj.x0,1),2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3])];
             nsols = 0;
@@ -136,6 +144,8 @@ classdef Planner2D_fast < handle
                     fpos(k,:) = mean(pos(uidx==k,:), 1);
                     ffval(k,1) = mean(fval(uidx==k), 1);
                 end
+%                 [fval, srows] = sort(ffval);
+%                 pos = fpos(srows,:);
                 pos = fpos;
                 fval = ffval;
             else
@@ -163,7 +173,7 @@ classdef Planner2D_fast < handle
                 obj.tracks(unassignedTracks(k)).count = obj.tracks(unassignedTracks(k)).count + 1;
             end
             % Remove lost tracks
-            rows = [obj.tracks.count] <= 5;  % remove tracks gone for 5 loops
+            rows = [obj.tracks.count] <= 15;  % remove tracks gone for 5 loops
             obj.tracks = obj.tracks(rows);
             % Create new tracks
             for k = 1 : size(unassignedDetections,1)
@@ -193,7 +203,11 @@ classdef Planner2D_fast < handle
             fval = cat(1, obj.tracks(:).cost);
             
 %             asstracks
-            x = cat(1, obj.tracks(asstracks).pos);
+            if ~isempty(obj.tracks)
+                x = cat(1, obj.tracks(asstracks).pos);
+            else
+                x = cat(1, obj.p.pos);
+            end
         end
         
         function [f, gradf] = objfungrad(obj, x)
@@ -224,9 +238,9 @@ classdef Planner2D_fast < handle
             DCeq = [];
             DC = -(ve/obj.e.vmax - vpnorm)';
             
-            if abs(c) > 5
-                c = NaN;
-            end
+%             if abs(c) > 5
+%                 c = NaN;
+%             end
         end
         
         function [pos, fval, exitflag, count] = search_intercept(obj, pos0)
@@ -237,6 +251,9 @@ classdef Planner2D_fast < handle
             
             assert(exitflag > 0, 'FastPursuit:No_solution', ...
                         'negative exitflag')
+
+            assert(abs(confungrad(obj, pos)) < 2, 'FastPursuit:No_solution', ...
+                        'constraint violation')
         end
         
         function [Hout, H, Hp, He] = hessianfcn(obj, x, lambda)
@@ -350,7 +367,7 @@ classdef Planner2D_fast < handle
             end
             figure, plot(obj.m)
             hold on, contour(xg, yg, con_mat, ':', 'LineColor', [1, 0.5, 0], ...
-                'ShowText', 'on', 'LineWidth', 1.5, 'LevelList', [-8:2:-2, 2:2:8]);
+                'ShowText', 'on', 'LineWidth', 1.5, 'LevelList', [-4:2:-2, 2:2:4]);
             contour(xg, yg, con_mat, [0, 100], '', 'LineColor', [1, 0.5, 0], 'ShowText', 'off', 'LineWidth', 3);
             contour(xg, yg, obj_mat, 'ShowText', 'off');
             scatter(obj.gpos(1), obj.gpos(2), 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3);
@@ -370,9 +387,10 @@ classdef Planner2D_fast < handle
                 
                 
 %                 obj.h = plot(obj.x0(:,1), obj.x0(:,2), 'xr');
-                obj.h = plot([0, 0], [0, 0], '.-', 'color', [0.8 0.8 0.6], 'markersize', 12);  % x0 -> x
-                obj.h(4) = scatter(zeros(2,1), zeros(2,1), [1e-5;1e-5], [1, 0.5, 0], '+', 'linewidth', 1.5);
-                obj.h(2) = scatter(zeros(2,1), zeros(2,1), [1e-5;1e-5], [1, 0.5, 0], 'linewidth', 1.5);
+                obj.h = plot([0, 0], [0, 0], '-', 'color', [0.8 0.8 0.6 0.6]);  % x0 -> x
+                obj.h(5) = plot([0, 0], [0, 0], '.', 'color', [0.8 0.8 0.6 0.6], 'markersize', 12);  % x0 -> x
+                obj.h(4) = scatter(ones(2,1)*1e3, zeros(2,1), [1e-5;1e-5], [1, 0.5, 0], '+', 'linewidth', 1.5);
+                obj.h(2) = scatter(ones(2,1)*1e3, zeros(2,1), [1e-5;1e-5], [1, 0.5, 0], 'linewidth', 1.5);
                 obj.h(3) = scatter(obj.gpos(1), obj.gpos(2), 400, [0, 0.8, 0], 'filled', 'MarkerFaceAlpha', 0.3);
                 
                 ds = min(diff(obj.m.lims(1:2)), diff(obj.m.lims(3:4))) / 50;
@@ -398,16 +416,17 @@ classdef Planner2D_fast < handle
                 % plot initial guess joined to local solution
                 pp = cat(3, obj.etc.pos, obj.etc.x, NaN(size(obj.etc.pos)));
                 pp = reshape(permute(pp, [3 1 2]), [3*size(obj.etc.pos,1), 2, 1]);
-                set(obj.h(1), 'XData', pp(:,1), 'YData', pp(:,2))
+%                 set(obj.h(1), 'XData', pp(:,1), 'YData', pp(:,2))
+%                 set(obj.h(5), 'XData', obj.etc.pos(:,1), 'YData', obj.etc.pos(:,2))
             end
             
             
             sol = cat(1, obj.tracks(:).pos);
             fval = cat(1, obj.tracks(:).cost);
             if ~isempty(sol)
-                set(obj.h(2), 'XData', sol(:,1), 'YData', sol(:,2), 'SizeData', 0.2*(150 + 1500*mean(fval)./(1+fval)))
+%                 set(obj.h(2), 'XData', sol(:,1), 'YData', sol(:,2), 'SizeData', 0.2*(150 + 1500*mean(fval)./(1+fval)))
                 [~,idx] = min(fval);
-                set(obj.h(4), 'XData', sol(idx,1), 'YData', sol(idx,2), 'SizeData', 0.2*(150 + 1500*mean(fval(idx))./(1+fval(idx))))
+%                 set(obj.h(4), 'XData', sol(idx,1), 'YData', sol(idx,2), 'SizeData', 0.2*(150 + 1500*mean(fval(idx))./(1+fval(idx))))
             end
             set(obj.h(3), 'XData', obj.gpos(1), 'YData', obj.gpos(2));
             
