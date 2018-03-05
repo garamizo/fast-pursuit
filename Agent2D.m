@@ -51,54 +51,6 @@ classdef Agent2D < handle
         end
         
         
-        function [u, DV, dyaw] = line_follow(obj)
-            
-            % find closest point to plan
-            [dist, idx] = min( sqrt(sum( (obj.pos - obj.plan).^2, 2 ) ) );
-            if idx == 1 && size(obj.plan,1) > 1
-                dd = obj.plan(idx+1,:) - obj.plan(idx,:);
-                dist = 0;
-                
-            elseif idx ~= size(obj.plan,1)
-                dd = obj.plan(idx+1,:) - obj.plan(idx,:);
-                pts = [obj.pos; obj.plan(idx+[0,1],:); obj.pos];
-                sig = sum(pts(1:end-1,1).*pts(2:end,2) - pts(2:end,1).*pts(1:end-1,2)); % side of line
-                dist = dist * sign(sig);
-
-            else
-                dd = obj.plan(end,:) - obj.pos;
-                dist = 0;
-            end
-            
-            K = [0.5, 5, 1];
-            dyaw = -min(max(K(1) * dist, -pi/2), pi/2) + atan2(dd(2), dd(1)); % desired yaw
-            w = K(2) * asin(sin(dyaw - obj.yaw));
-            if sqrt(sum((obj.plan(end,1:2) - obj.pos).^2, 2)) > obj.dist_tol
-                v = max(obj.vop - 0.01*abs(w), 0);
-            else
-                v = 0;
-            end
-
-            u = [v, w];
-            DV = K(3) * w;
-        end
-        
-        function u = pctrl(obj, tpos)
-            % u: [linear vel; angular vel] m/s, rad/s
-            
-            epos = (tpos - obj.pos) * obj.Rz(obj.yaw); % position error on car frame
-            erot = atan2(epos(2), epos(1)); 
-
-            zerr = [epos(1), erot];
-            if sqrt( epos * epos' ) > 15e-2 % if error is large
-                u = [   70.5, 0
-                    0, 2.5] * zerr';
-            else % if error is small
-                u = 10*[   2, 0
-                    0, 1] * zerr';
-            end
-        end
-        
         function correct(obj)
             % correct position using camera, if exist
             [tracked, pos0, yaw0] = Agent2D.read_mocap(obj.hc, obj.camidx);
@@ -130,6 +82,12 @@ classdef Agent2D < handle
 
             twist = obj.ctrl.step([obj.pos, obj.yaw]);
             obj.predict(twist);
+            
+            volt = obj.ctrl.motorization(twist);
+            try
+            fprintf(obj.hb, '%.1f %.1f\n', volt);
+            catch
+            end
             
 %             % update motors, if exist
 %             k1 = obj.vmax/10;
@@ -195,11 +153,14 @@ classdef Agent2D < handle
             tracked = rbody.Tracked;
 
             if tracked
-                q0 = [cosd(-90/2), sind(-90/2), 0, 0];
+%                 q0 = [cosd(90/2), sind(90/2), 0, 0];
+                q0 = dcm2quat(Rz(pi) * Rx(pi/2));
                 quat = double([rbody.qw, rbody.qx, rbody.qy, rbody.qz]);
                 quat = quatmultiply(quatmultiply(quatinv(q0), quat), (q0));
                 trans = double([rbody.x, rbody.y, rbody.z]);
                 trans = quatrotate(q0, trans);
+                
+%                 mocap2pursuit = @(pos) quatrotate(quatinv(xg(4:7)), pos) - xg(1:3);
 
                 pos = [trans(1), trans(2)];
                 rot = quat2angle((quat), 'ZYX');

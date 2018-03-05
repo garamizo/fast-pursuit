@@ -1,10 +1,10 @@
 % Place markers on all corners of bodies 2 and 4
 % Record for 1 second
 
-m = Mocap('C:\Users\hirolab\Documents\Optitrack\pursuit\calib\Take 2018-03-04 04.23.22 PM.csv');
+m = Mocap('C:\Users\hirolab\Documents\Optitrack\pursuit\calib\Take 2018-03-04 11.01.35 PM.csv');
 
 b2 = m.body('Rigid Body 2');
-b4 = m.body('Rigid Body 4');
+b4 = m.body('Rigid Body 1');
 
 p2 = squeeze(mean(cat(3, b2.marker.trans) - b2.trans))';
 th = cart2pol(p2(:,1), p2(:,3));
@@ -16,7 +16,7 @@ th = cart2pol(p4(:,1), p4(:,3));
 [~, id] = sort(th);
 points4 = squeeze(mean(cat(3, b4.marker(id).trans)))';
 
-%%
+%% 
 m = Mocap('C:\Users\hirolab\Documents\Optitrack\pursuit\gen_map\Take 2018-02-23 07.38.35 PM.csv');
 
 b2 = m.body('Rigid Body 2');
@@ -96,6 +96,7 @@ plot3(pp(:,1), pp(:,2), pp(:,3), ':b')
 xlabel('x'), ylabel('y'), zlabel('z'), grid on, 
 camup([0 1 0])
 
+%%
 axis equal
 xlim([-3, 3]), ylim([-0.5, 1]), zlim([-2, 2])
 

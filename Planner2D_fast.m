@@ -110,7 +110,7 @@ classdef Planner2D_fast < handle
             end
             
             % search N random points
-            N = 10;
+            N = 5;
             pos0 = [obj.x0 + 0.01*randn(size(obj.x0,1), 2)
                 rand(N-size(obj.x0,1),2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3])];
             nsols = 0;
