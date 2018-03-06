@@ -110,7 +110,7 @@ classdef Planner2D_fast < handle
             end
             
             % search N random points
-            N = 10;
+            N = 5;
             pos0 = [obj.x0 + 0.01*randn(size(obj.x0,1), 2)
                 rand(N-size(obj.x0,1),2) .* (obj.m.lims([2 4]) - obj.m.lims([1 3])) + obj.m.lims([1 3])];
             nsols = 0;
@@ -416,17 +416,17 @@ classdef Planner2D_fast < handle
                 % plot initial guess joined to local solution
                 pp = cat(3, obj.etc.pos, obj.etc.x, NaN(size(obj.etc.pos)));
                 pp = reshape(permute(pp, [3 1 2]), [3*size(obj.etc.pos,1), 2, 1]);
-%                 set(obj.h(1), 'XData', pp(:,1), 'YData', pp(:,2))
-%                 set(obj.h(5), 'XData', obj.etc.pos(:,1), 'YData', obj.etc.pos(:,2))
+                set(obj.h(1), 'XData', pp(:,1), 'YData', pp(:,2))
+                set(obj.h(5), 'XData', obj.etc.pos(:,1), 'YData', obj.etc.pos(:,2))
             end
             
             
             sol = cat(1, obj.tracks(:).pos);
             fval = cat(1, obj.tracks(:).cost);
             if ~isempty(sol)
-%                 set(obj.h(2), 'XData', sol(:,1), 'YData', sol(:,2), 'SizeData', 0.2*(150 + 1500*mean(fval)./(1+fval)))
+                set(obj.h(2), 'XData', sol(:,1), 'YData', sol(:,2), 'SizeData', 0.2*(150 + 1500*mean(fval)./(1+fval)))
                 [~,idx] = min(fval);
-%                 set(obj.h(4), 'XData', sol(idx,1), 'YData', sol(idx,2), 'SizeData', 0.2*(150 + 1500*mean(fval(idx))./(1+fval(idx))))
+                set(obj.h(4), 'XData', sol(idx,1), 'YData', sol(idx,2), 'SizeData', 0.2*(150 + 1500*mean(fval(idx))./(1+fval(idx))))
             end
             set(obj.h(3), 'XData', obj.gpos(1), 'YData', obj.gpos(2));
             

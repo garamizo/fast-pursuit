@@ -197,8 +197,8 @@ classdef Map2D_fast < handle
                 
             xlim(map.lims(1:2)), ylim(map.lims(3:4))
             daspect([1 1 1])
-            set(gcf, 'position', [560   620   413   328]) % for paper
-%             set(gcf, 'position', [560   512   686   436]) % for video
+%             set(gcf, 'position', [560   620   413   328]) % for paper
+            set(gcf, 'position', [560   512   686   436]) % for video
             set(gcf, 'units', 'pixels')
 %             set(gca,'TickDir','out');
 %             set(gca,'box','off')

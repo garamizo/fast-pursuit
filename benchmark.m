@@ -341,7 +341,9 @@ th = linspace(0, 2*pi, 15)';
 agent_positions = [ 1.4862      -0.5248
     10.2350   -1.3534
     -1.1560    7.5564
-   -4.2656   -3.4688];
+   -4.2656   -3.4688
+   -7.4154    5.6391
+  -12.0395   -4.5113];
     
 mapfile = 'maze';
 shape = [cos(th), sin(th)] * 0.5;
@@ -376,9 +378,9 @@ data = zeros(3000,6);
 % tt = grow_tree(map, p.pos)
 % figure, plot_tree(map, tt)
 
-record = false;
+record = true;
 if record
-    v = VideoWriter('videos/pursuit_x3', 'Motion JPEG AVI');
+    v = VideoWriter('videos/fastpursuit_x7', 'Motion JPEG AVI');
     v.Quality  = 100;
     decim = 1;
     v.FrameRate = decim/dt;
@@ -410,15 +412,15 @@ t0 = tic;
 for k = 1 : 3000
     t12 = tic;
 
-%     ppix = get(0, 'PointerLocation'); % pointer absolute location (X, Y) [px]
-%     mpix = get(gcf, 'position').*[1 1 0 0] + get(gca, 'Position');
-%     ppos = [interp1([mpix(1), mpix(1)+mpix(2)]+phack(1:2), map.lims(1:2), ppix(1), 'linear', 'extrap'), ...
-%         interp1([mpix(3), mpix(3)+mpix(4)]+phack(3:4), map.lims(3:4), ppix(2), 'linear', 'extrap')];
-%     set(hh, 'XData', ppos(1), 'YData', ppos(2))
-%     set_plan(e, [e.pos; ppos], 100);
-%     plot(e.ctrl)
+    ppix = get(0, 'PointerLocation'); % pointer absolute location (X, Y) [px]
+    mpix = get(gcf, 'position').*[1 1 0 0] + get(gca, 'Position');
+    ppos = [interp1([mpix(1), mpix(1)+mpix(2)]+phack(1:2), map.lims(1:2), ppix(1), 'linear', 'extrap'), ...
+        interp1([mpix(3), mpix(3)+mpix(4)]+phack(3:4), map.lims(3:4), ppix(2), 'linear', 'extrap')];
+    set(hh, 'XData', ppos(1), 'YData', ppos(2))
+    set_plan(e, [e.pos; ppos], 100);
+    plot(e.ctrl)
         
-    if mod(k-1, 20) == 0
+    if mod(k-1, 1) == 0
         
         plot(pl)
         
@@ -467,7 +469,7 @@ for k = 1 : 3000
     elseif length(pl.tracks) >= 2
         tmp = cat(2, pl.tracks(1:2).pos);
     end
-    data(k,:) = [p(1).pos, e.pos, tmp];
+%     data(k,:) = [p(1).pos, e.pos, tmp];
     
     drawnow
     pause(dt- toc(t12))
