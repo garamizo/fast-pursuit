@@ -11,7 +11,7 @@ classdef Map2D_fast < handle
         gd_safe
         kpos % keypoints
         cost
-        obstacle_dilation = 0.01
+        obstacle_dilation = 0.09
     end
     
     methods
@@ -186,13 +186,15 @@ classdef Map2D_fast < handle
             for k = 1 : length(map.obs)
 %                 plot(map.obs{k}(:,1), map.obs{k}(:,2), '.-')
                 h = fill(map.obs{k}(:,1), map.obs{k}(:,2), 'k');
-                set(h, 'FaceAlpha', 0.2, 'LineStyle', 'none');
+                set(h, 'FaceAlpha', 0.6);
                 hold on
-                dy = 1;
-                dx = 1;
-                yticks(map.lims(3):dy:map.lims(4))
-                xticks(map.lims(1):dx:map.lims(2))
             end
+            
+            dy = 5;
+            dx = 5;
+            yticks(map.lims(3):dy:map.lims(4))
+            xticks(map.lims(1):dx:map.lims(2))
+                
             xlim(map.lims(1:2)), ylim(map.lims(3:4))
             daspect([1 1 1])
 %             set(gcf, 'position', [560   620   413   328]) % for paper
@@ -200,6 +202,9 @@ classdef Map2D_fast < handle
             set(gcf, 'units', 'pixels')
 %             set(gca,'TickDir','out');
 %             set(gca,'box','off')
+            
+%             set(gca,'xtick',[])
+%             set(gca,'ytick',[])
             
             set(gca,'xticklabel',[])
             set(gca,'yticklabel',[])
@@ -275,23 +280,23 @@ classdef Map2D_fast < handle
             plot(map)
             hold on
 %             plot(tr.pos(1,1), tr.pos(1,2), 'o', 'markersize', 20)
-            scatter(tr.pos(end,1), tr.pos(end,2), 400, color, 'filled', 'MarkerFaceAlpha', 0.3)
+            scatter(tr.pos(end,1), tr.pos(end,2), 100, 'b', 'filled', 'MarkerFaceAlpha', 0.5)
             scatter(tr.pos(tr.parent>0,1), tr.pos(tr.parent>0,2), 5, color, 'o', 'filled')
             
             for k = 1 : size(tr.pos,1)
                 if tr.parent(k) > 0
                     plot([tr.pos(k,1), tr.pos(tr.parent(k),1)], ...
-                        [tr.pos(k,2), tr.pos(tr.parent(k),2)], ':', 'color', color)
+                        [tr.pos(k,2), tr.pos(tr.parent(k),2)], '-', 'color', color)
                     
                     if all( sqrt(sum((txtloc - tr.pos(k,1:2)).^2, 2)) > 3) && ...
                             tr.pos(k,1) > map.lims(1) + 1 && tr.pos(k,1) < map.lims(2) - 1 && ...
                             tr.pos(k,2) > map.lims(3) + 1 && tr.pos(k,2) < map.lims(4) - 1
                         
-                        pcount = -45;
+                        pcount = 60;
                         spc = 0.8 * [cosd(pcount), sind(pcount)];
                         txtloc(end+1,:) = tr.pos(k,1:2);
-%                         text(tr.pos(k,1)+spc(1), tr.pos(k,2)+spc(2), ...
-%                             sprintf('%.1f', tr.cumcost(k)), 'FontSize', 11, 'Color', [0 0 0])
+                        text(tr.pos(k,1)+spc(1), tr.pos(k,2)+spc(2), ...
+                            sprintf('%.1f', tr.cumcost(k)), 'FontSize', 10, 'Color', [0 0 0])
                         
                         txtloc2 = (tr.pos(k,:) + tr.pos(tr.parent(k),:))/2;
                         dist = sqrt(sum((tr.pos(k,:) - tr.pos(tr.parent(k),:)).^2));
@@ -300,8 +305,23 @@ classdef Map2D_fast < handle
                    
                     end
                 end
-                text(tr.pos(k,1), tr.pos(k,2), ['  ' num2str(k)])
+%                 text(tr.pos(k,1), tr.pos(k,2), ['  ' num2str(k)])
             end
+        end
+        
+        function plot_visibility(obj)
+            
+
+           figure, plot(obj)
+           for k1 = 1 : size(obj.kpos, 1)
+               for k2 = 1 : size(obj.kpos, 1)
+                   if isfinite(obj.cost(k1,k2))
+                       hh = plot(obj.kpos([k1 k2],1), obj.kpos([k1 k2],2), 'o-', 'color', [0.5 0.5 0.5], 'markersize', 4);
+                       hh.Color(4) = 0.25;
+                   end
+               end
+           end
+           
         end
         
         function [mincost, kend, vend, wpos, v0] = find_path(map, tr, pos)

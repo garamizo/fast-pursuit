@@ -57,42 +57,22 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
-  //    if (Serial.available() > 0) {
-  //      int vr = Serial.parseInt();
-  //      int vl = Serial.parseInt();
-  //      runTime = Serial.parseInt();
-  //      startTime = millis();
-  //
-  //      Serial.println(String(vr) + ' ' + vl + ' ' + runTime);
-  //
-  //      simple_drive(vr, vl);
-  //      motorState = 1;
-  //    }
-
-  if (client.connected()) {
-    client.println("Connected");
-    digitalWrite(22, LOW);
-    delay(1000);
-  } else {
+  static long lastMsg = millis();
+  if (millis() - lastMsg > 300)
     simple_drive(0, 0);
-    digitalWrite(22, !digitalRead(22));
-    delay(1000);
-    Serial.println("Disconnected");
-  }
-
+    
   if (client.available() > 0) {
-    String string = client.readStringUntil('r');
-    String string2 = client.readStringUntil('r');
-    float vr = string.toFloat();
-    float vl = string2.toFloat();
+    
+    float vr = client.parseFloat();
+    float vl = client.parseFloat();
+    client.read();
+    
     simple_drive(vr, vl);
     Serial.println(String(vr) + ' ' + vl);
 
-    motorState = 1;
+    lastMsg = millis();
   }
-
+  
   delay(10);
 }
 
@@ -100,13 +80,13 @@ void simple_drive(float vr, float vl) {
 
   ledcWrite(0, vr > 0 ? 1023.0 : 0);
   ledcWrite(1, vr > 0 ? 0 : 1023.0);
-  ledcWrite(4, abs(vr) * 1023.0 / 100.0);
-  Serial.println(abs(vr) * 1023.0 / 100.0);
+  ledcWrite(4, constrain(abs(vr), 0, 100) * 1023.0 / 100.0);
+//  Serial.println(abs(vr) * 1023.0 / 100.0);
   
 
   ledcWrite(2, vl > 0 ? 1023.0 : 0);
   ledcWrite(3, vl > 0 ? 0 : 1023.0);
-  ledcWrite(5, abs(vl) * 1023.0 / 100.0);
+  ledcWrite(5, constrain(abs(vl), 0, 100) * 1023.0 / 100.0);
 
 }
 
