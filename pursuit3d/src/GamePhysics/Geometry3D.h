@@ -102,8 +102,21 @@ Point ClosestPoint(const AABB&aabb, const Point& point);
 
 bool AABBPlane(const AABB& aabb, const Plane& plane);
 
+bool PointInOBB(const Point& point, const OBB& obb);
+Point ClosestPoint(const OBB& obb, const Point& point);
+
 #define PlaneAABB(plane, aabb) \
    AABBPlane(aabb, plane)
+
+bool AABBAABB(const AABB& aabb1, const AABB& aabb2);
+
+bool SphereOBB(const Sphere& sphere, const OBB& obb);
+#define OBBSphere(obb, sphere) \
+SphereOBB(sphere, obb)
+
+bool OverlapOnAxis(const OBB& obb1, const OBB& obb2, 
+    const vec3& axis);
+bool OBBOBB(const OBB& obb1, const OBB& obb2);
 
 float Raycast(const AABB& aabb, const Ray& ray);
 float Raycast(const OBB& obb, const Ray& ray);
@@ -111,6 +124,7 @@ float Raycast(const Plane& plane, const Ray& ray);
 
 bool Linetest(const AABB& aabb, const Line& line);
 bool Linetest(const OBB& obb, const Line& line);
+
 
 typedef struct Interval {
    float min;
@@ -124,40 +138,36 @@ bool OverlapOnAxis(const AABB& aabb, const OBB& obb,
 bool AABBOBB(const AABB& aabb, const OBB& obb);
 #define OBBAABB(obb, aabb) AABBOBB(aabb, obb)
 
-
-
-
-
-
-
-
-
-
-
-
-
+bool OBBPlane(const OBB&obb, const Plane& plane);
+#define PlaneOBB(plane, obb) \
+   OBBPlane(obb, plane)
 
 class Model {
 protected:
-    OBB content;
+    OBB* content;
     AABB bounds;
 public:
     vec3 position;
     vec3 rotation;
     Model* parent;
-    inline Model() : parent(0) { }
-    inline OBB GetContent() const {
+    inline Model() : parent(0), content(0) { }
+    inline OBB* GetMesh() const {
         return content;
     }
     inline AABB GetBounds() const {
         return bounds;
     }
-    void SetContent(OBB obb);
+    void SetContent(OBB* mesh);
 };
 
+mat4 GetWorldMatrix(const Model& model);
+OBB GetOBB(const Model& model);
 
-
-
-
+float ModelRay(const Model& model, const Ray& ray);
+bool Linetest(const Model& model, const Line& line);
+bool ModelSphere(const Model& model, const Sphere& sphere);
+bool ModelAABB(const Model& model, const AABB& aabb);
+bool ModelOBB(const Model& model, const OBB& obb);
+bool ModelPlane(const Model& model, const Plane& plane);
 
 #endif

@@ -3,11 +3,33 @@
 #include <cmath>
 #include <cfloat>
 
+void test_model() {
+	OBB obox0({0.0f, 0.0f, 0.0f}, 
+			 {1.0f, 1.0f, 1.0f});
+
+	double th = M_PI / 4.0;
+	OBB obox({sqrt(2)+1-0.1, 0.0f, 0.0f}, 
+			 {1.0f, 1.0f, 1.0f},
+			 {cos(th), -sin(th), 0, sin(th), cos(th), 0, 0, 0, 1});
+
+	// Model model;
+	// model.SetContent(&obox);
+	// Ray ray({-3.5, 0, 0}, {1, 0, 0});
+	// ray.NormalizeDirection();
+
+	// Interval xlim = GetInterval(obox, {1, 0, 0});
+
+	std::cout<< "Intersect? " << OBBOBB(obox0, obox) << "\n";
+}
+
 
 int main() {
-	
+
+	test_model();
+	return 0;
+
 	Point v1(5.0f, 3.0f, 2.0f);
-	Point v2 = {10.0f, 2.0f, 3.0f};
+	Point v2 = {100.0f, 200.0f, 300.0f};
 	Line l1(v1, {10.0f, 2.0f, 3.0f});
 	Point right = v1 - v2;
 	float d = Distance(v1, v2);
@@ -15,18 +37,23 @@ int main() {
 	AABB box = FromMinMax(v1, {2, 5, 3});
 	// AABB box(v1, {2, 4, 3});
 	// AABB box;
-	OBB obox(v1, {1, 2, 3});
+	float th = M_PI / 4.0;
+	OBB obox(v1, {1, 1, 3}, mat3(cos(th), -sin(th), 0, sin(th), cos(th), 0, 0, 0, 1));
+	OBB obox2(v1, {0.1, 0.1, 0.1});
 	Ray ray(v1, {-1.0f, 0.0f, 0.0f});
 	Plane plane(v1, 0.5);
 	float d1 = PlaneEquation(v1, plane);
 	Triangle tri = FromPoints(v1, v2, {10, 2, 1});
 	Point p1 = ClosestPoint(sphere, v1);
 	Point p2 = ClosestPoint(box, v1);
+	Model model;
+	model.SetContent(&obox);
+	AABB bounds = model.GetBounds();
 	
-	std::cout<< "Component 0: " << AABBOBB(box, obox) << "\n";
-	std::cout<< "Component 0: " << AABBPlane(box, plane) << "\n";
-	std::cout<< "Component 0: " << Linetest(obox, l1) << "\n";
-	std::cout<< "Component 0: " << Raycast(plane, ray) << "\n";
+	std::cout<< "Component 0: " << bounds.size.x << "\n";
+	std::cout<< "Component 0: " << bounds.size.y  << "\n";
+	std::cout<< "Component 0: " << bounds.size.z << "\n";
+	std::cout<< "Component 0: " << ModelOBB(model, obox2) << "\n";
 	
 	return 0;
 }
