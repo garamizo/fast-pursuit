@@ -128,7 +128,7 @@ include_directories(
 # )
 
 add_library(game_physics
-  # src/GamePhysics/Geometry3D.cpp
+  src/GamePhysics/Geometry3D.cpp
   src/GamePhysics/matrices.cpp
   src/GamePhysics/vectors.cpp
 )
