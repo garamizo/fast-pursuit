@@ -43,17 +43,17 @@ int main() {
 	Ray ray(v1, {-1.0f, 0.0f, 0.0f});
 	Plane plane(v1, 0.5);
 	float d1 = PlaneEquation(v1, plane);
-	Triangle tri = FromPoints(v1, v2, {10, 2, 1});
+	// Triangle tri = FromPoints(v1, v2, {10, 2, 1});
 	Point p1 = ClosestPoint(sphere, v1);
 	Point p2 = ClosestPoint(box, v1);
 	Model model;
-	model.SetContent(&obox);
+	// model.SetContent(&obox);
 	AABB bounds = model.GetBounds();
 	
 	std::cout<< "Component 0: " << bounds.size.x << "\n";
 	std::cout<< "Component 0: " << bounds.size.y  << "\n";
 	std::cout<< "Component 0: " << bounds.size.z << "\n";
-	std::cout<< "Component 0: " << ModelOBB(model, obox2) << "\n";
+	// std::cout<< "Component 0: " << ModelOBB(model, obox2) << "\n";
 	
 	return 0;
 }
