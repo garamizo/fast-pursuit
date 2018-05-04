@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cfloat>
 #include <ctime>
+#include <urdf/model.h>
 
 float randb() {
 	return (2.0 * (rand() - RAND_MAX/2.0) / RAND_MAX);
