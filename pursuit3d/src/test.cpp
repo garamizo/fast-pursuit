@@ -1,4 +1,5 @@
 #include "Geometry3D.h"
+#include "Map.h"
 #include <iostream>
 #include <cmath>
 #include <cfloat>
@@ -8,18 +9,28 @@ void test_model() {
 			 {1.0f, 1.0f, 1.0f});
 
 	double th = M_PI / 4.0;
-	OBB obox({sqrt(2)+1-0.1, 0.0f, 0.0f}, 
+	OBB obox({sqrt(2)+1+0.1, 1.0f, 0.0f}, 
 			 {1.0f, 1.0f, 1.0f},
 			 {cos(th), -sin(th), 0, sin(th), cos(th), 0, 0, 0, 1});
 
-	// Model model;
+	Model model;
+	Map map;
+	map.AddOBB(&obox0);
+	map.AddOBB(&obox);
+	map.Accelerate({0, 0, 0}, 10);
+
+	OBB* obox1 = map.Raycast(Ray({-10, 0, 0}, {1, 0, 0}));
+
 	// model.SetContent(&obox);
 	// Ray ray({-3.5, 0, 0}, {1, 0, 0});
 	// ray.NormalizeDirection();
 
 	// Interval xlim = GetInterval(obox, {1, 0, 0});
 
-	std::cout<< "Intersect? " << OBBOBB(obox0, obox) << "\n";
+	if(obox1 != 0)
+		std::cout<< "Intersect? " << *obox1 << "\n";
+	else
+		std::cout << "No intersection" << std::endl;
 }
 
 

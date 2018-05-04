@@ -131,7 +131,7 @@ add_library(game_physics
   src/GamePhysics/Geometry3D.cpp
   src/GamePhysics/matrices.cpp
   src/GamePhysics/vectors.cpp
-  # src/GamePhysics/Scene.cpp
+  src/GamePhysics/Map.cpp
 )
 
 ## Add cmake target dependencies of the library

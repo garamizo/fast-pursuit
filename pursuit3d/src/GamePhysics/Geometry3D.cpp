@@ -86,11 +86,11 @@ std::ostream& operator<<(std::ostream& os, const Triangle& shape) {
 }
 
 std::ostream& operator<<(std::ostream& os, const OBB& shape) {
-    os << "position:" << shape.position.x << ", " << shape.position.y << ", " << shape.position.z << "), ";
-    os << "size:" << shape.size.x << ", " << shape.size.y << ", " << shape.size.z << "), ";
-    os << "x basis:" << shape.orientation._11 << ", " << shape.orientation._21 << ", " << shape.orientation._31 << "), ";
-    os << "y basis:" << shape.orientation._12 << ", " << shape.orientation._22 << ", " << shape.orientation._32 << "), ";
-    os << "z basis:" << shape.orientation._13 << ", " << shape.orientation._23 << ", " << shape.orientation._33 << ")";
+    os << "position: (" << shape.position.x << ", " << shape.position.y << ", " << shape.position.z << "), ";
+    os << "size: (" << shape.size.x << ", " << shape.size.y << ", " << shape.size.z << "), ";
+    os << "x-basis: (" << shape.orientation._11 << ", " << shape.orientation._21 << ", " << shape.orientation._31 << "), ";
+    os << "y-basis: (" << shape.orientation._12 << ", " << shape.orientation._22 << ", " << shape.orientation._32 << "), ";
+    os << "z-basis: (" << shape.orientation._13 << ", " << shape.orientation._23 << ", " << shape.orientation._33 << ")";
     return os;
 }
 
@@ -361,9 +361,9 @@ bool AABBOBB(const AABB& aabb, const OBB& obb) {
     };
 
     for (int i = 0; i < 3; ++i) { // Fill out rest of axis
-        test[6 + i * 3 + 0] = Cross(test[i], test[0]);
-        test[6 + i * 3 + 1] = Cross(test[i], test[1]);
-        test[6 + i * 3 + 2] = Cross(test[i], test[2]);
+        test[6 + i * 3 + 0] = Cross(test[i], test[3]);
+        test[6 + i * 3 + 1] = Cross(test[i], test[4]);
+        test[6 + i * 3 + 2] = Cross(test[i], test[5]);
     }
 
     for (int i = 0; i < 15; ++i) {
@@ -383,7 +383,7 @@ bool OverlapOnAxis(const AABB& aabb, const OBB& obb, const vec3& axis) {
 
 bool OverlapOnAxis(const OBB& obb1, const OBB& obb2, const vec3& axis) {
     Interval a = GetInterval(obb1, axis);
-    Interval b = GetInterval(obb1, axis);
+    Interval b = GetInterval(obb2, axis);
     return ((b.min <= a.max) && (a.min <= b.max));
 }
 
@@ -504,9 +504,9 @@ bool OBBOBB(const OBB& obb1, const OBB& obb2) {
     };
 
     for (int i = 0; i < 3; ++i) { // Fill out rest of axis
-        test[6 + i * 3 + 0] = Cross(test[i], test[0]);
-        test[6 + i * 3 + 1] = Cross(test[i], test[1]);
-        test[6 + i * 3 + 2] = Cross(test[i], test[2]);
+        test[6 + i * 3 + 0] = Cross(test[i], test[3]);
+        test[6 + i * 3 + 1] = Cross(test[i], test[4]);
+        test[6 + i * 3 + 2] = Cross(test[i], test[5]);
     }
 
     for (int i = 0; i < 15; ++i) {
@@ -605,23 +605,23 @@ bool Raycast(const OBB& obb, const Ray& ray, RaycastResult* outResult) {
         Dot(Z, p)
     );
 
-#if 1
-    float t[6] = { 0, 0, 0, 0, 0, 0 };
-    for (int i = 0; i < 3; ++i) {
-        if (CMP(f[i], 0)) {
-            if (-e[i] - size[i] > 0 || -e[i] + size[i] < 0) {
-                return false;
-            }
-            f[i] = 0.00001f; // Avoid div by 0!
-        }
+// #if 1
+//     float t[6] = { 0, 0, 0, 0, 0, 0 };
+//     for (int i = 0; i < 3; ++i) {
+//         if (CMP(f[i], 0)) {
+//             if (-e[i] - size[i] > 0 || -e[i] + size[i] < 0) {
+//                 return false;
+//             }
+//             f[i] = 0.00001f; // Avoid div by 0!
+//         }
 
-        t[i * 2 + 0] = (e[i] + size[i]) / f[i]; // tmin[x, y, z]
-        t[i * 2 + 1] = (e[i] - size[i]) / f[i]; // tmax[x, y, z]
-    }
+//         t[i * 2 + 0] = (e[i] + size[i]) / f[i]; // tmin[x, y, z]
+//         t[i * 2 + 1] = (e[i] - size[i]) / f[i]; // tmax[x, y, z]
+//     }
 
-    float tmin = fmaxf(fmaxf(fminf(t[0], t[1]), fminf(t[2], t[3])), fminf(t[4], t[5]));
-    float tmax = fminf(fminf(fmaxf(t[0], t[1]), fmaxf(t[2], t[3])), fmaxf(t[4], t[5]));
-#else 
+//     float tmin = fmaxf(fmaxf(fminf(t[0], t[1]), fminf(t[2], t[3])), fminf(t[4], t[5]));
+//     float tmax = fminf(fminf(fmaxf(t[0], t[1]), fmaxf(t[2], t[3])), fmaxf(t[4], t[5]));
+// #else 
     // The above loop simplifies the below if statements
     // this is done to make sure the sample fits into the book
     if (CMP(f.x, 0)) {
@@ -649,10 +649,11 @@ bool Raycast(const OBB& obb, const Ray& ray, RaycastResult* outResult) {
     float t4 = (e.y - obb.size.y) / f.y;
     float t5 = (e.z + obb.size.z) / f.z;
     float t6 = (e.z - obb.size.z) / f.z;
+    float t[6] = { t1, t2, t3, t4, t5, t6 };
 
     float tmin = fmaxf(fmaxf(fminf(t1, t2), fminf(t3, t4)), fminf(t5, t6));
     float tmax = fminf(fminf(fmaxf(t1, t2), fmaxf(t3, t4)), fmaxf(t5, t6));
-#endif
+// #endif
 
     // if tmax < 0, ray is intersecting AABB
     // but entire AABB is behing it's origin
