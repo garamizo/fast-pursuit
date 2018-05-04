@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
+find_package(SDFormat REQUIRED)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -121,7 +122,10 @@ include_directories(
 # include
   ${PROJECT_SOURCE_DIR}/src/GamePhysics
   ${catkin_INCLUDE_DIRS}
+  ${SDFormat_INCLUDE_DIRS}
 )
+
+link_directories(${SDFormat_LIBRARY_DIRS})
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
@@ -165,6 +169,7 @@ target_link_libraries(${PROJECT_NAME}_node
 
 target_link_libraries(pursuit
   ${catkin_LIBRARIES}
+  ${SDFormat_LIBRARIES}
   game_physics
 )
 

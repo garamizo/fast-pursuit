@@ -1,5 +1,6 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include "gazebo_msgs/ModelStates.h"
 
 #include <sstream>
 
@@ -11,33 +12,47 @@
 #include <cfloat>
 #include <ctime>
 
+
+class Planner {
+	Map map;
+
+public:
+	Planner();
+
+} planner;
+
+Planner::Planner() {
+
+	// build map
+	float th = -15 * M_PI / 180.0;
+	mat3 rot({cos(th), -sin(th), 0, sin(th), cos(th), 0, 0, 1});
+	OBB *meem = new OBB({-50, 30, 20.4}, {10, 10, 40.8}, rot);
+	OBB *chem = new OBB({-20, 40, 14.95}, {8, 8, 29.9}, rot);
+
+	map.AddOBB(meem);
+	map.AddOBB(chem);
+	map.Accelerate({0, 0, 20}, 20); // z origin on middle of tallest building
+
+	// create keypoints
+}
+
+
+
+void radarCallback(const gazebo_msgs::ModelStates) {
+
+	// update agents' pose
+
+	// calculate interception point
+
+	// command agents
+}
+
+
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "pursuit");
-	if (argc != 2) {
-		ROS_ERROR("Need a urdf file as argument");
-		return -1;
-	}
-	std::string urdf_file = argv[1];
-
-	urdf::Model model;
-	if(!model.initFile(urdf_file)) {
-		ROS_ERROR("Failed to parse urdf file");
-		return -1;
-	}
-	ROS_INFO("Successfully parsed urdf file");
-
-	boost::shared_ptr<const urdf::Link> link = model.getLink("link1");
-	std::cout << link->collision->origin.position.x << std::endl;
-
-	std::vector<boost::shared_ptr<urdf::Link>> links;
-	model.getLinks(links);
-	std::cout << links[1]->collision->origin.position.x << std::endl;
-
-
-	return 0;
-
 	ros::NodeHandle n;
 
+	ros::Subscriber sub = n.subscribe("/gazebo/model_states", 100, chatterCallback);
 	ros::Publisher pub = n.advertise<std_msgs::String>("chatter", 1000);
 
 	ros::Rate loop_rate(10);
@@ -57,4 +72,5 @@ int main(int argc, char **argv) {
 	}
 
 	return 0;
+	
 }
