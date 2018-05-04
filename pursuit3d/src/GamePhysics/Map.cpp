@@ -257,3 +257,11 @@ bool Map::Accelerate(const vec3& position, float size) {
 	SplitTree(octree, 5);
 	return true;
 }
+
+
+std::ostream& operator<<(std::ostream& os, const Map& m) {
+	os << "Length: " << m.objects.size() << '\n';
+	for (int k = 0; k < m.objects.size(); k++)
+		os << *m.objects[k] << '\n';
+    return os;
+}

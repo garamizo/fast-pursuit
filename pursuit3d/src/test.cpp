@@ -3,6 +3,11 @@
 #include <iostream>
 #include <cmath>
 #include <cfloat>
+#include <ctime>
+
+float randb() {
+	return (2.0 * (rand() - RAND_MAX/2.0) / RAND_MAX);
+}
 
 void test_model() {
 	OBB obox0({0.0f, 0.0f, 0.0f}, 
@@ -13,13 +18,39 @@ void test_model() {
 			 {1.0f, 1.0f, 1.0f},
 			 {cos(th), -sin(th), 0, sin(th), cos(th), 0, 0, 0, 1});
 
-	Model model;
+	// Model model;
 	Map map;
-	map.AddOBB(&obox0);
-	map.AddOBB(&obox);
+	// OBB oboxp[10];
+	for(int k = 0; k < 20; k++) {
+		float th = randb() * 2;
+		OBB *some_box = new OBB({randb() * 10, randb() * 10, randb() * 10}, 
+			 {3, 3, 3},
+			 {cos(th), -sin(th), 0, sin(th), cos(th), 0, 0, 0, 1});
+		map.AddOBB(some_box);
+	}
+	// map.AddOBB(&obox);
+	// map.AddOBB(&obox0);
+	// map.AddOBB(&obox);
+	
 	map.Accelerate({0, 0, 0}, 10);
 
-	OBB* obox1 = map.Raycast(Ray({-10, 0, 0}, {1, 0, 0}));
+	std::cout << map << std::endl;
+
+	Ray rays[1000];
+	for(int k = 0; k < 1000; k++) {
+		rays[k] = Ray({randb() * 10, randb() * 10, randb() * 10},
+					  {randb(), randb(), randb()});
+	}
+
+	OBB* obox1;
+
+	clock_t begin = clock();
+	for(int k = 0; k < 1000; k++) {
+		obox1 = map.Raycast(rays[k]);
+	}
+	clock_t end = clock();
+
+	// std::cout << *map.objects[0] << std::endl;
 
 	// model.SetContent(&obox);
 	// Ray ray({-3.5, 0, 0}, {1, 0, 0});
@@ -31,6 +62,8 @@ void test_model() {
 		std::cout<< "Intersect? " << *obox1 << "\n";
 	else
 		std::cout << "No intersection" << std::endl;
+
+	std::cout << "Elapsed time: " << (double(end - begin) / CLOCKS_PER_SEC) * 1e6 / 1000 << std::endl;
 }
 
 

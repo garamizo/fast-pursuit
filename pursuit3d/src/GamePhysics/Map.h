@@ -19,12 +19,13 @@ typedef struct OctreeNode {
 
 class Map {
 protected:
-	std::vector<OBB*> objects;
+	
 	OctreeNode* octree;
 private:
 	Map(const Map&);
 	Map& operator=(const Map&);
 public:
+	std::vector<OBB*> objects;
 	inline Map() : octree(0) { } 
 	inline ~Map() {
 		if (octree != 0) {
@@ -39,7 +40,8 @@ public:
 	std::vector<OBB*> Query(const Sphere& sphere);
 	std::vector<OBB*> Query(const AABB& aabb);
 
-	bool Accelerate(const vec3& position, float size); 
+	bool Accelerate(const vec3& position, float size);
+	friend std::ostream& operator<<(std::ostream& os, const Map& m);
 };
 
 void SplitTree(OctreeNode* node, int depth);
