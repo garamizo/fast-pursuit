@@ -3,8 +3,10 @@
 
   <include file="$(find drone_tracker)/launch/run_simulation.launch" />
 
-  <node pkg="pursuit3d" type="publish_robots.py" name="publish_robots" output="screen" respawn="true">
-  </node>
+  <!--node pkg="pursuit3d" type="publish_robots.py" name="publish_robots" output="screen" respawn="true">
+  </node-->
+
+  <node pkg="tf" type="static_transform_publisher" name="ground_truth_transform" args="0 0 0 0 0 0 nav map 10" />
 
   <node pkg="pursuit3d" type="pursuit" name="pursuit" output="screen" respawn="true">
   </node>
