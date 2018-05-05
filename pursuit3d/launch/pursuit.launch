@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+
+  <include file="$(find drone_tracker)/launch/run_simulation.launch" />
+
+  <node pkg="pursuit3d" type="publish_robots.py" name="publish_robots" output="screen" respawn="true">
+  </node>
+
+  <node pkg="pursuit3d" type="pursuit" name="pursuit" output="screen" respawn="true">
+  </node>
+
+</launch>
