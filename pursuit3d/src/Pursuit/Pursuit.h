@@ -57,8 +57,12 @@ class Planner {
 
 public:
 	Map* map;
+	std::vector<SPT> p, e;
+
 	Planner(Map* _map);
 	bool CalculateInterception(InterceptionResult& result);
+	bool AddPursuer(const Point& point);
+	bool AddEvader(const Point& point);
 };
 
 #endif

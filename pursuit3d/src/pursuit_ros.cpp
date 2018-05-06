@@ -253,11 +253,7 @@ void radarCallback(const gazebo_msgs::ModelStates) {
 	// command agents
 }
 
-
-int main(int argc, char **argv) {
-	ros::init(argc, argv, "pursuit");
-	ros::NodeHandle n;
-
+void BuildCampusMap(Map& map) {
 	// build campus map
 	float th = -10 * M_PI / 180.0;
 	mat3 rot = Transpose(mat3({std::cos(th), -std::sin(th), 0, 
@@ -268,32 +264,37 @@ int main(int argc, char **argv) {
 	OBB *mub = new OBB({-30, -15, 2.5}, {10, 10, 2.5}, rot);
 	OBB *meem = new OBB({-30, 15, 20}, {5, 5, 20}, rot);
 
-	Map map;
 	map.AddOBB(meem);
 	map.AddOBB(chem);
 	map.AddOBB(mub);
 	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
+}
 
-	ROS_INFO("%lu obstacles created", map.objects.size());
+
+int main(int argc, char **argv) {
+	ros::init(argc, argv, "pursuit");
+	ros::NodeHandle n;
+
+	Map map;
+	BuildCampusMap(map);
 
 	Planner planner(&map);
-
+	planner.AddPursuer({10, 10, 2});
+	planner.AddEvader({-50, 20, 2});
 
 	ros::Subscriber sub = n.subscribe("/gazebo/model_states", 100, radarCallback);
 	ros::Publisher pub = n.advertise<std_msgs::String>("chatter", 1000);
 	ros::Publisher pub_marker = n.advertise<visualization_msgs::Marker>("marker_map", 1000);
 	
-	SPT ptree(&map, {40, 0, 2});
-	
 	// ptree.printSolution();
 
 	PathResult result;
 	clock_t begin = clock();
-	bool found = ptree.findPath({-40, 20, 20}, result);
+	bool found = planner.p[0].findPath(planner.e[0].root, result);
 	clock_t end = clock();
 
 	ROS_INFO("Path found? %d", found);
-	ptree.printPathResult(result);
+	planner.p[0].printPathResult(result);
 
 	ROS_INFO("Elapsed time: %.5f us\n",
 		1e6 * (double(end - begin) / CLOCKS_PER_SEC) / 1);
@@ -304,10 +305,10 @@ int main(int argc, char **argv) {
 	while(ros::ok()) {
 
 		DrawObstacles(map, pub_marker);
-		DrawKeypoints(ptree, pub_marker);
-		DrawKeypointLabels(ptree, pub_marker);
+		DrawKeypoints(planner.p[0], pub_marker);
+		DrawKeypointLabels(planner.p[0], pub_marker);
 		// DrawGraph(ptree, pub_marker);
-		DrawTree(ptree, pub_marker);
+		DrawTree(planner.p[0], pub_marker);
 		DrawPath(result, pub_marker);
 		
 		std_msgs::String msg;

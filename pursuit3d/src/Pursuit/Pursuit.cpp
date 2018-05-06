@@ -61,13 +61,6 @@ void SPT::printPathResult(const PathResult& result) {
 	std::cout << '\n';
 }
 
-Planner::Planner(Map* _map) {
-
-	map = _map;
-}
-
-
-
 int SPT::minDistance() {
 	// Initialize min value
 	int min = DIST_MAX, min_index;
@@ -103,9 +96,6 @@ void SPT::printPath(int node) {
     printf("%d ", node);
 }
 
-
-// Funtion that implements Dijkstra's single source shortest path algorithm
-// for a graph represented using adjacency matrix representation
 void SPT::Rewire(const Point& _root) {
 	root = _root;
 
@@ -143,7 +133,6 @@ void SPT::Rewire(const Point& _root) {
   
      // print the constructed distance array
 }
-
 
 void SPT::CreateKeypoints() {
 	// create keypoints
@@ -206,4 +195,25 @@ void SPT::CreateVisibilityGraph() {
 			}
 		}
 	}
+}
+
+Planner::Planner(Map* _map) {
+
+	map = _map;
+}
+
+bool Planner::AddPursuer(const Point& point) {
+	if(!map->PointInMap(point)) {
+		p.push_back(SPT(map, point));
+		return true;
+	}
+	return false;
+}
+
+bool Planner::AddEvader(const Point& point) {
+	if(!map->PointInMap(point)) {
+		e.push_back(SPT(map, point));
+		return true;
+	}
+	return false;
 }
