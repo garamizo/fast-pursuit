@@ -30,12 +30,17 @@ struct Agent {
 	};
 };
 
-
+struct PathResult {
+	vec3 depart,
+		 arrive;
+	std::vector<Point> waypts;
+	float dist;
+};
 
 class Planner {
 	
 	std::vector<Agent> p, e;
-	const float edge_resolution = 5.0f;
+	const float edge_resolution = 10.0f;
 	const float inflate = 1.01f;
 
 public:
@@ -48,6 +53,76 @@ public:
 
 } planner;
 
+class SPT {
+public:
+	Point origin;  // change to root
+	int nnodes;
+	std::vector<float> dist;
+	std::vector<int> parent;
+	std::vector<bool> sptSet;
+	const float distmax = DIST_MAX;
+
+
+	SPT(Point _origin);
+	void dijkstra();
+	int minDistance();
+	void printSolution();
+	void printPath(int node);
+	bool findPath(const Point& dest, PathResult& result);
+	void printPathResult(const PathResult& result);
+
+};
+
+bool SPT::findPath(const Point& dest, PathResult& result) {
+	
+	float dist_min = DIST_MAX;
+	int parent_min = -1;
+
+	Line direct(origin, dest);
+	if (!planner.map.Linetest(direct)) {  // test if direct flight
+		dist_min = Length(direct);
+		parent_min = nnodes;
+
+	} else  {// loop through each node and find least path updated cost
+		Line line(planner.pt[0], dest);
+		for(int i = 0; i < nnodes; i++) {
+			line.start = planner.pt[i];
+			float newdist = dist[i] + Length(line);
+			if (!planner.map.Linetest(line) && newdist < dist_min) {
+				dist_min = newdist;
+				parent_min = i;
+			}
+		}
+	}
+
+	if (parent_min > 0) {
+		result.dist = dist_min;
+		result.waypts.resize(0);
+		result.waypts.push_back(dest);
+		while(parent_min != nnodes) {
+			result.waypts.push_back(planner.pt[parent_min]);
+			parent_min = parent[parent_min];
+		}
+		result.waypts.push_back(origin);
+		result.arrive = Normalized(result.waypts[0] - result.waypts[1]);
+		std::reverse(std::begin(result.waypts), std::end(result.waypts));
+		result.depart = Normalized(result.waypts[1] - result.waypts[0]);
+
+		return true;
+	}
+	return false;
+}
+
+void SPT::printPathResult(const PathResult& result) {
+
+	printf("SPT path (%f):\n", result.dist);
+	for(int i = 0; i < result.waypts.size(); i++)
+		std::cout << result.waypts[i] << ' ';
+	std::cout << '\n';
+}
+
+
+
 Planner::Planner() {
 
 	// build map
@@ -56,28 +131,20 @@ Planner::Planner() {
 			  std::sin(th), std::cos(th), 0, 
 			  0, 0, 1}));
 
-	OBB *meem = new OBB({-30, 15, 20}, {5, 5, 20}, rot);
+	
 	OBB *chem = new OBB({-5, 20, 15}, {4, 10, 15}, rot);
 	OBB *mub = new OBB({-30, -15, 2.5}, {10, 10, 2.5}, rot);
+	OBB *meem = new OBB({-30, 15, 20}, {5, 5, 20}, rot);
 
 	map.AddOBB(meem);
 	map.AddOBB(chem);
 	map.AddOBB(mub);
-	map.Accelerate({0, 0, 40}, 50); // z origin on middle of tallest building
+	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
 
 	ROS_INFO("%lu obstacles created", map.objects.size());
 
 	CreateKeypoints();
-
-	clock_t begin = clock();
 	CreateVisibilityGraph();
-	clock_t end = clock();
-
-	ROS_INFO("Elapsed time: %.5f us\n",
-		1e6 * (double(end - begin) / CLOCKS_PER_SEC) / 1);
-
-	// ptree = SPT({0, 0, 1});
-
 }
 
 
@@ -129,14 +196,17 @@ void Planner::CreateVisibilityGraph() {
 	// create visibility map
 	int len = pt.size();
 	int count = 0;
+
 	graph.resize(len);
+	for(int i = 0; i < len; i++)
+		graph[i].resize(len, DIST_MAX);
+
 	for(int i = 0; i < len; i++) {
-		graph[i].resize(len, -1.0);
 		for(int j = i+1; j < len; j++) {
 
 			Line line(pt[i], pt[j]);
 			if(!map.Linetest(line)) {
-				graph[i][j] = Length(line);
+				graph[i][j] = graph[j][i] = Length(line);
 				count++;
 			}
 		}
@@ -165,22 +235,7 @@ geometry_msgs::Quaternion quat_from_mat3(mat3 mat) {
 }
 
 
-class SPT {
-public:
-	Point origin;
-	int nnodes;
-	std::vector<float> dist;
-	std::vector<int> parent;
-	std::vector<bool> sptSet;
-	const float distmax = DIST_MAX;
 
-
-	SPT(Point _origin);
-	void dijkstra();
-	int minDistance();
-	void printSolution();
-	void printPath(int node);
-};
 
 SPT::SPT(Point _origin) {
 	origin = _origin;
@@ -190,44 +245,40 @@ SPT::SPT(Point _origin) {
 	sptSet.resize(nnodes);
 
 	dijkstra();
+
+	ROS_INFO("SPT memmory allocated: %lu", dist.size());
 }
 
 int SPT::minDistance() {
 	// Initialize min value
-	int min = INT_MAX, min_index;
+	int min = DIST_MAX, min_index;
 	int V = nnodes;
 
 	for (int v = 0; v < V; v++)
-		if (sptSet[v] == false && dist[v] <= min)
-			min = dist[v], min_index = v;
+		if (sptSet[v] == false && dist[v] < min) {
+			min = dist[v];
+			min_index = v;
+		}
 
 	return min_index;
 }
 
-// A utility function to print 
-// the constructed distance
-// array
-void SPT::printSolution()
-{
+void SPT::printSolution() {
     int src = nnodes;
     int V = nnodes;
     printf("Vertex\t Distance\tPath");
     for (int i = 0; i < V; i++)
     {
-        printf("\n%d -> %d \t\t %f\t\t%d ",
-                      V, i, dist[i], src);
+        printf("\n%d \t %f\t\t%d ", i, dist[i], src);
         printPath(i);
     }
+    printf("\n");
 }
 
-// Function to print shortest
-// path from source to j
-// using parent array
-void SPT::printPath(int node)
-{
+void SPT::printPath(int node) {
      
     // Base Case : If j is source
-    if (parent[node] == - 1)
+    if (parent[node] > nnodes)
         return;
  
     printPath(parent[node]);
@@ -238,12 +289,9 @@ void SPT::printPath(int node)
 
 // Funtion that implements Dijkstra's single source shortest path algorithm
 // for a graph represented using adjacency matrix representation
-void SPT::dijkstra()
-{
+void SPT::dijkstra() {
 
 	int V = nnodes;
-	bool sptSet[nnodes]; // sptSet[i] will true if vertex i is included in shortest
-	             // path tree or shortest distance from src to i is finalized
 
 	// Initialize all distances as INFINITE and stpSet[] as false
 	for (int i = 0; i < V; i++) {
@@ -261,7 +309,7 @@ void SPT::dijkstra()
     }
   
      // Find shortest path for all vertices
-     for (int count = 0; count < V-1; count++)
+     for (int count = 0; count < V; count++)
      {
        int u = 	minDistance();
        sptSet[u] = true;
@@ -276,14 +324,13 @@ void SPT::dijkstra()
      }
   
      // print the constructed distance array
-     printSolution();
 }
 
 
 void DrawGraph(ros::Publisher pub) {
 	visualization_msgs::Marker marker;
 
-	marker.id = 1000;
+	marker.id = 2000;
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
 	marker.ns = "my_namespace";
@@ -379,6 +426,122 @@ void DrawKeypoints(ros::Publisher pub) {
 	}
 }
 
+void DrawKeypointLabels(ros::Publisher pub) {
+	visualization_msgs::Marker marker;
+
+	// plot keypoints
+	marker.id = 200;
+	marker.header.frame_id = "map";
+	marker.header.stamp = ros::Time();
+	marker.ns = "my_namespace";
+	marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.color.a = 1.0; // Don't forget to set the alpha!
+	marker.color.r = 1.0;
+	marker.color.g = 1.0;
+	marker.color.b = 1.0;
+	marker.scale.x = 1.0;
+	marker.scale.y = 1.0;
+	marker.scale.z = 2.0;
+	marker.pose.orientation.w = 1.0;
+
+	for(int k = 0; k < planner.pt.size(); k++) {
+		marker.id++;
+		marker.pose.position.x = planner.pt[k].x;
+		marker.pose.position.y = planner.pt[k].y;
+		marker.pose.position.z = planner.pt[k].z + 1;
+		marker.text = std::to_string(k);
+
+		pub.publish( marker );
+	}
+}
+
+void DrawTree(ros::Publisher pub, const SPT& spt) {
+	visualization_msgs::Marker marker;
+
+	marker.id = 1000;
+	marker.header.frame_id = "map";
+	marker.header.stamp = ros::Time();
+	marker.ns = "my_namespace";
+	marker.type = visualization_msgs::Marker::ARROW;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.color.a = 1.0; // Don't forget to set the alpha!
+	marker.color.r = 0.0;
+	marker.color.g = 1.0;
+	marker.color.b = 1.0;
+	marker.scale.x = 0.1;
+	marker.scale.y = 0.1;
+	marker.scale.z = 0.1;
+	marker.pose.orientation.x = 0;
+	marker.pose.orientation.y = 0;
+	marker.pose.orientation.z = 0;
+	marker.pose.orientation.w = 1;
+	marker.points.resize(2);
+
+
+	for(int i = 0; i < planner.pt.size(); i++) {
+		if(spt.parent[i] < 0)
+			continue;
+
+		marker.pose.position.x = planner.pt[i].x;
+		marker.pose.position.y = planner.pt[i].y;
+		marker.pose.position.z = planner.pt[i].z;
+
+		if(spt.parent[i] < spt.nnodes) {
+			marker.points[1].x = planner.pt[spt.parent[i]].x - planner.pt[i].x;
+			marker.points[1].y = planner.pt[spt.parent[i]].y - planner.pt[i].y;
+			marker.points[1].z = planner.pt[spt.parent[i]].z - planner.pt[i].z;
+		}
+		else {
+			marker.points[1].x = spt.origin.x - planner.pt[i].x;
+			marker.points[1].y = spt.origin.y - planner.pt[i].y;
+			marker.points[1].z = spt.origin.z - planner.pt[i].z;
+		}
+
+		marker.id++;
+		pub.publish( marker );
+	}
+	// ROS_INFO("%d links created", marker.id - 1000);
+}
+
+
+void DrawPath(ros::Publisher pub, const PathResult& result) {
+	visualization_msgs::Marker marker;
+
+	marker.id = 700;
+	marker.header.frame_id = "map";
+	marker.header.stamp = ros::Time();
+	marker.ns = "my_namespace";
+	marker.type = visualization_msgs::Marker::ARROW;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.color.a = 1.0; // Don't forget to set the alpha!
+	marker.color.r = 0.5;
+	marker.color.g = 0.5;
+	marker.color.b = 0.0;
+	marker.scale.x = 0.5;
+	marker.scale.y = 0.5;
+	marker.scale.z = 0.5;
+	marker.pose.orientation.x = 0;
+	marker.pose.orientation.y = 0;
+	marker.pose.orientation.z = 0;
+	marker.pose.orientation.w = 1;
+	marker.points.resize(2);
+
+
+	for(int i = 0; i < result.waypts.size() - 1; i++) {
+		marker.pose.position.x = result.waypts[i].x;
+		marker.pose.position.y = result.waypts[i].y;
+		marker.pose.position.z = result.waypts[i].z;
+
+		marker.id++;
+		marker.points[1].x = result.waypts[i+1].x - result.waypts[i].x;
+		marker.points[1].y = result.waypts[i+1].y - result.waypts[i].y;
+		marker.points[1].z = result.waypts[i+1].z - result.waypts[i].z;
+		pub.publish( marker );
+	}
+	// ROS_INFO("%d links created", marker.id - 1000);
+}
+
 
 
 void radarCallback(const gazebo_msgs::ModelStates) {
@@ -402,6 +565,23 @@ int main(int argc, char **argv) {
 	ros::Publisher pub_marker = n.advertise<visualization_msgs::Marker>("marker_map", 1000);
 
 
+	
+	SPT ptree({40, 0, 5});
+	
+
+	// ptree.printSolution();
+
+	PathResult result;
+	clock_t begin = clock();
+	bool found = ptree.findPath({-40, 30, 40}, result);
+	clock_t end = clock();
+
+	ROS_INFO("Path found? %d", found);
+	ptree.printPathResult(result);
+
+	ROS_INFO("Elapsed time: %.5f us\n",
+		1e6 * (double(end - begin) / CLOCKS_PER_SEC) / 1);
+	
 
 	ros::Rate loop_rate(10);
 
@@ -410,7 +590,10 @@ int main(int argc, char **argv) {
 
 		DrawOBB(pub_marker);
 		DrawKeypoints(pub_marker);
-		DrawGraph(pub_marker);
+		DrawKeypointLabels(pub_marker);
+		// DrawGraph(pub_marker);
+		DrawTree(pub_marker, ptree);
+		DrawPath(pub_marker, result);
 		
 		std_msgs::String msg;
 		std::stringstream ss;
