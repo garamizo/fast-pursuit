@@ -25,6 +25,7 @@ private:
 	Map(const Map&);
 	Map& operator=(const Map&);
 public:
+	
 	OctreeNode* octree;
 	std::vector<OBB*> objects;
 	inline Map() : octree(0) { } 
@@ -44,6 +45,7 @@ public:
 
 	bool Accelerate(const vec3& position, float size);
 	friend std::ostream& operator<<(std::ostream& os, const Map& m);
+
 };
 
 void SplitTree(OctreeNode* node, int depth);

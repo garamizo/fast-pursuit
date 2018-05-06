@@ -14,8 +14,6 @@ void Map::RemoveOBB(OBB* obb) {
 	objects.erase(std::remove(objects.begin(), objects.end(), obb), objects.end());
 }
 
-
-
 bool Map::Linetest(const Line& line) {
 
 	if (octree != 0) {
@@ -71,6 +69,7 @@ std::vector<OBB*> Map::Query(const AABB& aabb) {
 	}
 	return result;
 }
+
 
 void SplitTree(OctreeNode* node, int depth) {
 	if (depth-- <= 0) { // Decrements depth
