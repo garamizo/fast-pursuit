@@ -35,7 +35,7 @@ struct Agent {
 class Planner {
 	
 	std::vector<Agent> p, e;
-	const float edge_resolution = 10.0f;
+	const float edge_resolution = 5.0f;
 	const float inflate = 1.01f;
 
 public:
@@ -69,33 +69,15 @@ Planner::Planner() {
 
 	CreateKeypoints();
 
-	// std::cout << pt[0] << '\n' << pt[7] << std::endl;
-	// Line line(pt[0], pt[7]);
-	// ROS_INFO("Octree Blocked? %d", map.Linetest(line));
-	// std::cout << map.octree->bounds << std::endl;
-	// std::cout << line << std::endl;
-
-	// AABB box({0, 0, 0}, {10, 10, 10});
-	// Line l1({5, 0, 1}, {1, 1, 2});
-
-	// ROS_INFO("Octree Blocked? %d", Linetest(box, l1));
-	// std::cout << box << std::endl;
-	// std::cout << l1 << std::endl;
-
-	// Ray ray1(l1.start, l1.end - l1.start);
-	// RaycastResult result;
-
-	// ROS_INFO("Octree Blocked? %d", Raycast(box, ray1, &result));
-	// std::cout << box << std::endl;
-	// std::cout << ray1 << std::endl;
-	// std::cout << result.point << std::endl;
-	// ROS_INFO("Octree Blocked in point? %d", ContainsPoint(box, result.point));
-
-
-	// ROS_INFO("Map Blocked? %d", map.Linetest(line));
-
-
+	clock_t begin = clock();
 	CreateVisibilityGraph();
+	clock_t end = clock();
+
+	ROS_INFO("Elapsed time: %.5f us\n",
+		1e6 * (double(end - begin) / CLOCKS_PER_SEC) / 1);
+
+	// ptree = SPT({0, 0, 1});
+
 }
 
 
@@ -119,7 +101,7 @@ void Planner::CreateKeypoints() {
 
 		for(int k2 = 0; k2 < 8; k2++) {
 			points[k2] = MultiplyPoint(points[k2], transf);
-			if(!map.PointInMap(points[k2]))
+			if(!map.PointInMap(points[k2]) && points[k2].z > 0)
 			// if(!SimplePointInMap(&map, points[k2]))
 				pt.push_back(points[k2]);
 		}
@@ -132,7 +114,7 @@ void Planner::CreateKeypoints() {
 			while(clen < mlen * 0.99) {  // avoid floating point error
 				Point newpt(points[conn1[k2]] + dir * clen);
 
-				if(!map.PointInMap(newpt))
+				if(!map.PointInMap(newpt) && newpt.z > 0)
 				// if(!SimplePointInMap(&map, newpt))
 					pt.push_back(newpt);
 
@@ -146,16 +128,21 @@ void Planner::CreateKeypoints() {
 void Planner::CreateVisibilityGraph() {
 	// create visibility map
 	int len = pt.size();
+	int count = 0;
 	graph.resize(len);
 	for(int i = 0; i < len; i++) {
 		graph[i].resize(len, -1.0);
 		for(int j = i+1; j < len; j++) {
 
 			Line line(pt[i], pt[j]);
-			if(!map.Linetest(line))
+			if(!map.Linetest(line)) {
 				graph[i][j] = Length(line);
+				count++;
+			}
 		}
 	}
+
+	ROS_INFO("%d links created", count);
 
 	// for(int i = 0 ; i < len; i++) {
 	// 	for(int j = 0; j < len; j++)
