@@ -44,25 +44,28 @@ public:
 };
 
 
-struct InterceptionResult {
-	Point position;
-	SPT* p, e;
-	float atdist;
-};
+typedef struct InterceptionResult {
+	Point point;
+	SPT* p;
+	SPT* e;
+	SPT* g;
+	float cost, constraint;
+	vec3 costd, constraintd;
+	PathResult ppath, epath, gpath;
+} InterceptionResult;
 
 class Planner {
 
-	const float edge_resolution = 5.0f;
-	const float inflate = 1.01f;
-
 public:
 	Map* map;
-	std::vector<SPT> p, e;
+	std::vector<SPT> p, e, g;
 
 	Planner(Map* _map);
-	bool CalculateInterception(InterceptionResult& result);
+	bool SolveInterception(InterceptionResult& result);
 	bool AddPursuer(const Point& point);
 	bool AddEvader(const Point& point);
+	bool AddGoal(const Point& point);
+	bool EvaluatePoint(const Point& point, InterceptionResult& intercept);
 };
 
 #endif

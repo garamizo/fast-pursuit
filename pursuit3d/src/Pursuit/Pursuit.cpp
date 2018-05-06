@@ -217,3 +217,49 @@ bool Planner::AddEvader(const Point& point) {
 	}
 	return false;
 }
+
+bool Planner::AddGoal(const Point& point) {
+	if(!map->PointInMap(point)) {
+		g.push_back(SPT(map, point));
+		return true;
+	}
+	return false;
+}
+
+bool Planner::SolveInterception(InterceptionResult& result) {
+
+}
+
+bool Planner::EvaluatePoint(const Point& point, InterceptionResult& intercept) {
+
+	float mindist = 1e6;
+	PathResult path;
+	bool valid = false;
+
+	for(int i = 0; i < p.size(); i++) {
+		if (p[i].findPath(point, path) && path.dist < mindist) {
+			mindist = path.dist;
+			intercept.p = &p[i];
+			intercept.ppath = path;
+			valid = true;
+		}
+	}
+	if(!valid)
+		return false;
+
+	if (!e[0].findPath(point, intercept.epath))  // error detection
+		return false;
+	intercept.e = &e[0];
+
+	if (!g[0].findPath(point, intercept.gpath))  // error detection
+		return false;
+	intercept.g = &g[0];
+
+	intercept.point = point;
+	intercept.cost = intercept.gpath.dist;
+	intercept.constraint = intercept.ppath.dist - intercept.epath.dist;
+	intercept.costd = intercept.gpath.arrive;
+	intercept.constraintd  = intercept.ppath.arrive - intercept.epath.arrive;
+
+	return true;
+}

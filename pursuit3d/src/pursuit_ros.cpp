@@ -281,20 +281,19 @@ int main(int argc, char **argv) {
 	Planner planner(&map);
 	planner.AddPursuer({10, 10, 2});
 	planner.AddEvader({-50, 20, 2});
+	planner.AddGoal({10, 30, 1});
 
 	ros::Subscriber sub = n.subscribe("/gazebo/model_states", 100, radarCallback);
 	ros::Publisher pub = n.advertise<std_msgs::String>("chatter", 1000);
 	ros::Publisher pub_marker = n.advertise<visualization_msgs::Marker>("marker_map", 1000);
 	
-	// ptree.printSolution();
-
-	PathResult result;
+	InterceptionResult itcp;
 	clock_t begin = clock();
-	bool found = planner.p[0].findPath(planner.e[0].root, result);
+	bool found = planner.EvaluatePoint({-20, 0, 10}, itcp);
 	clock_t end = clock();
 
-	ROS_INFO("Path found? %d", found);
-	planner.p[0].printPathResult(result);
+	ROS_INFO("Interception found? %d\nCost: %f\nConstraint: %f\nCost grad: ", found, itcp.cost, itcp.constraint);
+	std::cout << itcp.costd << "\nConstraint grad: " << itcp.constraintd << "\n";
 
 	ROS_INFO("Elapsed time: %.5f us\n",
 		1e6 * (double(end - begin) / CLOCKS_PER_SEC) / 1);
@@ -309,7 +308,7 @@ int main(int argc, char **argv) {
 		DrawKeypointLabels(planner.p[0], pub_marker);
 		// DrawGraph(ptree, pub_marker);
 		DrawTree(planner.p[0], pub_marker);
-		DrawPath(result, pub_marker);
+		DrawPath(itcp.ppath, pub_marker);
 		
 		std_msgs::String msg;
 		std::stringstream ss;
