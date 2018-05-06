@@ -16,7 +16,9 @@ void Map::RemoveOBB(OBB* obb) {
 
 
 
-OBB* Map::Raycast(const Ray& ray) {
+OBB* Map::Raycast(const Ray& ray, RaycastResult* outResult) {
+	ResetRaycastResult(outResult);
+
 	if (octree != 0) {
 		// :: lets the compiler know to look outside class scope
 		return ::Raycast(octree, ray);
@@ -24,11 +26,10 @@ OBB* Map::Raycast(const Ray& ray) {
 
 	OBB* result = 0;
 	float result_t = -1;
-	RaycastResult ray_result;
 
 	for (int i = 0, size = objects.size(); i < size; ++i) {
-		::Raycast(*objects[i], ray, &ray_result);
-		float t = ray_result.t;
+		::Raycast(*objects[i], ray, outResult);
+		float t = outResult->t;
 		if (result == 0 && t >= 0) {
 			result = objects[i];
 			result_t = t;
@@ -40,6 +41,18 @@ OBB* Map::Raycast(const Ray& ray) {
 	}
 
 	return result;
+}
+
+OBB* Map::PointInMap(const Point& pt) {
+	if (octree != 0) {
+		return PointInOctree(octree, pt);
+	}
+
+	for (int i = 0, size = objects.size(); i < size; ++i)
+		if(PointInOBB(pt, *objects[i]))
+			return objects[i];
+
+	return 0;
 }
 
 std::vector<OBB*> Map::Query(const Sphere& sphere) {
@@ -170,11 +183,11 @@ OBB* Raycast(OctreeNode* node, const Ray& ray) {
 	Raycast(node->bounds, ray, &raycast);
 	float t = raycast.t;
 
-	if (t >= 0) {
-		if (node->children == 0) {
-			return FindClosest(node->obbs, ray);
+	if (t >= 0) {  // if hits grid
+		if (node->children == 0) {  // if no children
+			return FindClosest(node->obbs, ray);  // first hit
 		}
-		else {
+		else {  // grid has subdivisions
 			std::vector<OBB*> results;
 			for (int i = 0; i < 8; ++i) {
 				OBB* result = Raycast(&(node->children[i]), ray);
@@ -183,6 +196,28 @@ OBB* Raycast(OctreeNode* node, const Ray& ray) {
 				}
 			}
 			return FindClosest(results, ray);
+		}
+	}
+
+	return 0;
+}
+
+OBB* PointInOctree(OctreeNode* node, const Point& pt) {
+	bool contains = PointInAABB(pt, node->bounds);
+
+	if (contains) {  // if hits grid
+		if (node->children == 0) {  // if no children
+			for(int k = 0; k < node->obbs.size(); k++)
+				if(PointInOBB(pt, *node->obbs[k]))
+					return node->obbs[k];  // first hit
+		}
+		else {  // grid has subdivisions
+			for (int i = 0; i < 8; ++i) {
+				OBB* result = PointInOctree(&(node->children[i]), pt);
+				if (result != 0) {
+					return(result);
+				}
+			}
 		}
 	}
 

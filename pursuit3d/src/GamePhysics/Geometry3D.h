@@ -346,7 +346,7 @@ typedef struct CollisionManifold {
 	vec3 normal;
 	float depth;
 	std::vector<vec3> contacts;
-};
+} CollisionManifold;
 void ResetCollisionManifold(CollisionManifold* result);
 
 std::vector<Point> GetVertices(const OBB& obb);

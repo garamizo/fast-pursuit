@@ -36,9 +36,10 @@ public:
 	void AddOBB(OBB* obb);
 	void RemoveOBB(OBB* model);
 
-	OBB* Raycast(const Ray& ray);
+	OBB* Raycast(const Ray& ray, RaycastResult* outResult);
 	std::vector<OBB*> Query(const Sphere& sphere);
 	std::vector<OBB*> Query(const AABB& aabb);
+	OBB* PointInMap(const Point& pt);
 
 	bool Accelerate(const vec3& position, float size);
 	friend std::ostream& operator<<(std::ostream& os, const Map& m);
@@ -51,6 +52,7 @@ void Remove(OctreeNode* node, OBB* obb);
 
 OBB* FindClosest(const std::vector<OBB*>& set, const Ray& ray);
 OBB* Raycast(OctreeNode* node, const Ray& ray);
+OBB* PointInOctree(OctreeNode* node, const Point& pt);
 std::vector<OBB*> Query(OctreeNode* node, const Sphere& sphere);
 std::vector<OBB*> Query(OctreeNode* node, const AABB& aabb);
 

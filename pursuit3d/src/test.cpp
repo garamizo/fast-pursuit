@@ -14,10 +14,10 @@ void test_model() {
 	OBB obox0({0.0f, 0.0f, 0.0f}, 
 			 {1.0f, 1.0f, 1.0f});
 
-	double th = M_PI / 4.0;
+	float th = M_PI / 4.0;
 	OBB obox({sqrt(2)+1+0.1, 1.0f, 0.0f}, 
 			 {1.0f, 1.0f, 1.0f},
-			 {cos(th), -sin(th), 0, sin(th), cos(th), 0, 0, 0, 1});
+			 {std::cos(th), -std::sin(th), 0, std::sin(th), std::cos(th), 0, 0, 0, 1});
 
 	// Model model;
 	Map map;
@@ -26,7 +26,7 @@ void test_model() {
 		float th = randb() * 2;
 		OBB *some_box = new OBB({randb() * 10, randb() * 10, randb() * 10}, 
 			 {3, 3, 3},
-			 {cos(th), -sin(th), 0, sin(th), cos(th), 0, 0, 0, 1});
+			 {std::cos(th), -std::sin(th), 0, std::sin(th), std::cos(th), 0, 0, 0, 1});
 		map.AddOBB(some_box);
 	}
 	// map.AddOBB(&obox);
@@ -44,10 +44,11 @@ void test_model() {
 	}
 
 	OBB* obox1;
+	RaycastResult ray_result;
 
 	clock_t begin = clock();
 	for(int k = 0; k < 1000; k++) {
-		obox1 = map.Raycast(rays[k]);
+		obox1 = map.Raycast(rays[k], &ray_result);
 	}
 	clock_t end = clock();
 
