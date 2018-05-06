@@ -22,7 +22,7 @@ void test_model() {
 	// Model model;
 	Map map;
 	// OBB oboxp[10];
-	for(int k = 0; k < 20; k++) {
+	for(int k = 0; k < 50; k++) {
 		float th = randb() * 2;
 		OBB *some_box = new OBB({randb() * 10, randb() * 10, randb() * 10}, 
 			 {3, 3, 3},
@@ -37,18 +37,18 @@ void test_model() {
 
 	std::cout << map << std::endl;
 
-	Ray rays[1000];
-	for(int k = 0; k < 1000; k++) {
-		rays[k] = Ray({randb() * 10, randb() * 10, randb() * 10},
-					  {randb(), randb(), randb()});
+	int REPS = 10000;
+	Line lines[REPS];
+	for(int k = 0; k < REPS; k++) {
+		lines[k] = Line({randb() * 10, randb() * 10, randb() * 10},
+					  {randb() * 10, randb() * 10, randb() * 10});
 	}
 
-	OBB* obox1;
-	RaycastResult ray_result;
+	bool result;
 
 	clock_t begin = clock();
-	for(int k = 0; k < 1000; k++) {
-		obox1 = map.Raycast(rays[k], &ray_result);
+	for(int k = 0; k < REPS; k++) {
+		result = map.Linetest(lines[k]);
 	}
 	clock_t end = clock();
 
@@ -60,12 +60,9 @@ void test_model() {
 
 	// Interval xlim = GetInterval(obox, {1, 0, 0});
 
-	if(obox1 != 0)
-		std::cout<< "Intersect? " << *obox1 << "\n";
-	else
-		std::cout << "No intersection" << std::endl;
+	printf("With %lu obstacles\n%d line repetitions\nElapsed time: %.5f us\n",
+		map.objects.size(), REPS, 1e6 * (double(end - begin) / CLOCKS_PER_SEC) / REPS);
 
-	std::cout << "Elapsed time: " << (double(end - begin) / CLOCKS_PER_SEC) * 1e6 / 1000 << std::endl;
 }
 
 

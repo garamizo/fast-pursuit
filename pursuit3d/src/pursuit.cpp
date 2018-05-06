@@ -19,13 +19,7 @@
 #include <cfloat>
 #include <ctime>
 
-
-bool SimplePointInMap(const Map* map, const Point pt) {
-	for(int k = 0; k < map->objects.size(); k++)
-		if(ContainsPoint(*(map->objects[k]), pt))
-			return(true);
-	return(false);
-}
+#define DIST_MAX 1e6
 
 
 struct Agent {
@@ -37,16 +31,20 @@ struct Agent {
 };
 
 
+
 class Planner {
 	
 	std::vector<Agent> p, e;
-	const float edge_resolution = 5.0f;
-	const float inflate = 1.0001f;
+	const float edge_resolution = 10.0f;
+	const float inflate = 1.01f;
 
 public:
 	std::vector<Point> pt;
+	std::vector<std::vector <float>> graph;
 	Map map;
 	Planner();
+	void CreateKeypoints();
+	void CreateVisibilityGraph();
 
 } planner;
 
@@ -69,13 +67,39 @@ Planner::Planner() {
 
 	ROS_INFO("%lu obstacles created", map.objects.size());
 
-	Point origin(-5, 20, 15), size({4, 10, 15});
-	size = size * inflate;
-	Point ptt(origin.x + size.x, origin.y - size.y, origin.z + size.z);
-	std::cout << ptt;
-	ROS_INFO("Collided? %d", map.PointInMap(ptt) ? 1 : 0);
+	CreateKeypoints();
+
+	// std::cout << pt[0] << '\n' << pt[7] << std::endl;
+	// Line line(pt[0], pt[7]);
+	// ROS_INFO("Octree Blocked? %d", map.Linetest(line));
+	// std::cout << map.octree->bounds << std::endl;
+	// std::cout << line << std::endl;
+
+	// AABB box({0, 0, 0}, {10, 10, 10});
+	// Line l1({5, 0, 1}, {1, 1, 2});
+
+	// ROS_INFO("Octree Blocked? %d", Linetest(box, l1));
+	// std::cout << box << std::endl;
+	// std::cout << l1 << std::endl;
+
+	// Ray ray1(l1.start, l1.end - l1.start);
+	// RaycastResult result;
+
+	// ROS_INFO("Octree Blocked? %d", Raycast(box, ray1, &result));
+	// std::cout << box << std::endl;
+	// std::cout << ray1 << std::endl;
+	// std::cout << result.point << std::endl;
+	// ROS_INFO("Octree Blocked in point? %d", ContainsPoint(box, result.point));
 
 
+	// ROS_INFO("Map Blocked? %d", map.Linetest(line));
+
+
+	CreateVisibilityGraph();
+}
+
+
+void Planner::CreateKeypoints() {
 	// create keypoints
 	for(int k = 0; k < map.objects.size(); k++) {
 		vec3 size = map.objects[k]->size * inflate;
@@ -117,9 +141,27 @@ Planner::Planner() {
 		}
 	}
 	ROS_INFO("%lu key points created", pt.size());
+}
 
+void Planner::CreateVisibilityGraph() {
 	// create visibility map
-	
+	int len = pt.size();
+	graph.resize(len);
+	for(int i = 0; i < len; i++) {
+		graph[i].resize(len, -1.0);
+		for(int j = i+1; j < len; j++) {
+
+			Line line(pt[i], pt[j]);
+			if(!map.Linetest(line))
+				graph[i][j] = Length(line);
+		}
+	}
+
+	// for(int i = 0 ; i < len; i++) {
+	// 	for(int j = 0; j < len; j++)
+	// 		printf("%3.1f ", graph[i][j]);
+	// 	printf("\n");
+	// }
 }
 
 
@@ -135,10 +177,169 @@ geometry_msgs::Quaternion quat_from_mat3(mat3 mat) {
 	return(tf2::toMsg(quat));
 }
 
-void DrawPlanner(ros::Publisher pub) {
+
+class SPT {
+public:
+	Point origin;
+	int nnodes;
+	std::vector<float> dist;
+	std::vector<int> parent;
+	std::vector<bool> sptSet;
+	const float distmax = DIST_MAX;
+
+
+	SPT(Point _origin);
+	void dijkstra();
+	int minDistance();
+	void printSolution();
+	void printPath(int node);
+};
+
+SPT::SPT(Point _origin) {
+	origin = _origin;
+	nnodes = planner.pt.size();
+	dist.resize(nnodes);
+	parent.resize(nnodes);
+	sptSet.resize(nnodes);
+
+	dijkstra();
+}
+
+int SPT::minDistance() {
+	// Initialize min value
+	int min = INT_MAX, min_index;
+	int V = nnodes;
+
+	for (int v = 0; v < V; v++)
+		if (sptSet[v] == false && dist[v] <= min)
+			min = dist[v], min_index = v;
+
+	return min_index;
+}
+
+// A utility function to print 
+// the constructed distance
+// array
+void SPT::printSolution()
+{
+    int src = nnodes;
+    int V = nnodes;
+    printf("Vertex\t Distance\tPath");
+    for (int i = 0; i < V; i++)
+    {
+        printf("\n%d -> %d \t\t %f\t\t%d ",
+                      V, i, dist[i], src);
+        printPath(i);
+    }
+}
+
+// Function to print shortest
+// path from source to j
+// using parent array
+void SPT::printPath(int node)
+{
+     
+    // Base Case : If j is source
+    if (parent[node] == - 1)
+        return;
+ 
+    printPath(parent[node]);
+ 
+    printf("%d ", node);
+}
+
+
+// Funtion that implements Dijkstra's single source shortest path algorithm
+// for a graph represented using adjacency matrix representation
+void SPT::dijkstra()
+{
+
+	int V = nnodes;
+	bool sptSet[nnodes]; // sptSet[i] will true if vertex i is included in shortest
+	             // path tree or shortest distance from src to i is finalized
+
+	// Initialize all distances as INFINITE and stpSet[] as false
+	for (int i = 0; i < V; i++) {
+		dist[i] = distmax;
+		sptSet[i] = false;
+		parent[i] = -1;
+	}
+
+     // Distance of source vertex from itself is always 0
+    Line line(origin, {0, 0, 0});
+    for(int i = 0; i < V; i++) {
+    	line.end = planner.pt[i];
+    	if(!planner.map.Linetest(line))
+    		dist[i] = Length(line), parent[i] = V;
+    }
+  
+     // Find shortest path for all vertices
+     for (int count = 0; count < V-1; count++)
+     {
+       int u = 	minDistance();
+       sptSet[u] = true;
+  
+       // Update dist value of the adjacent vertices of the picked vertex.
+       for (int v = 0; v < V; v++)
+         if (!sptSet[v] && planner.graph[u][v] && dist[u] < distmax 
+                                       && dist[u]+planner.graph[u][v] < dist[v]) {
+         	dist[v] = dist[u] + planner.graph[u][v];
+         	parent[v] = u;
+         }  
+     }
+  
+     // print the constructed distance array
+     printSolution();
+}
+
+
+void DrawGraph(ros::Publisher pub) {
+	visualization_msgs::Marker marker;
+
+	marker.id = 1000;
+	marker.header.frame_id = "map";
+	marker.header.stamp = ros::Time();
+	marker.ns = "my_namespace";
+	marker.type = visualization_msgs::Marker::ARROW;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.color.a = 1.0; // Don't forget to set the alpha!
+	marker.color.r = 0.0;
+	marker.color.g = 0.0;
+	marker.color.b = 1.0;
+	marker.scale.x = 0.1;
+	marker.scale.y = 0.1;
+	marker.scale.z = 0.1;
+	marker.pose.orientation.x = 0;
+	marker.pose.orientation.y = 0;
+	marker.pose.orientation.z = 0;
+	marker.pose.orientation.w = 1;
+	marker.points.resize(2);
+
+
+	for(int i = 0; i < planner.pt.size(); i++) {
+		marker.pose.position.x = planner.pt[i].x;
+		marker.pose.position.y = planner.pt[i].y;
+		marker.pose.position.z = planner.pt[i].z;
+		for(int j = i + 1; j < planner.pt.size(); j++) {
+			if(planner.graph[i][j] > 0) {
+				marker.id++;
+				marker.points[1].x = planner.pt[j].x - planner.pt[i].x;
+				marker.points[1].y = planner.pt[j].y - planner.pt[i].y;
+				marker.points[1].z = planner.pt[j].z - planner.pt[i].z;
+				pub.publish( marker );
+			}
+		}
+	}
+	// ROS_INFO("%d links created", marker.id - 1000);
+}
+
+
+
+void DrawOBB(ros::Publisher pub) {
 	visualization_msgs::Marker marker;
 
 	// plot OBB
+	marker.id = 0;
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
 	marker.ns = "my_namespace";
@@ -161,9 +362,18 @@ void DrawPlanner(ros::Publisher pub) {
 
 		pub.publish( marker );
 	}
+}
+
+void DrawKeypoints(ros::Publisher pub) {
+	visualization_msgs::Marker marker;
 
 	// plot keypoints
+	marker.id = 100;
+	marker.header.frame_id = "map";
+	marker.header.stamp = ros::Time();
+	marker.ns = "my_namespace";
 	marker.type = visualization_msgs::Marker::SPHERE;
+	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
 	marker.color.r = 1.0;
 	marker.color.g = 0.0;
@@ -205,12 +415,16 @@ int main(int argc, char **argv) {
 	ros::Publisher pub_marker = n.advertise<visualization_msgs::Marker>("marker_map", 1000);
 
 
+
 	ros::Rate loop_rate(10);
 
 	int count = 0;
 	while(ros::ok()) {
-		DrawPlanner(pub_marker);
 
+		DrawOBB(pub_marker);
+		DrawKeypoints(pub_marker);
+		DrawGraph(pub_marker);
+		
 		std_msgs::String msg;
 		std::stringstream ss;
 		ss << "Hello World! " << count;

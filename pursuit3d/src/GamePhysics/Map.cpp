@@ -16,31 +16,18 @@ void Map::RemoveOBB(OBB* obb) {
 
 
 
-OBB* Map::Raycast(const Ray& ray, RaycastResult* outResult) {
-	ResetRaycastResult(outResult);
+bool Map::Linetest(const Line& line) {
 
 	if (octree != 0) {
 		// :: lets the compiler know to look outside class scope
-		return ::Raycast(octree, ray);
+		return ::Linetest(octree, line);
 	}
 
-	OBB* result = 0;
-	float result_t = -1;
+	for (int i = 0, size = objects.size(); i < size; ++i)
+		if(::Linetest(*objects[i], line))
+			return true;
 
-	for (int i = 0, size = objects.size(); i < size; ++i) {
-		::Raycast(*objects[i], ray, outResult);
-		float t = outResult->t;
-		if (result == 0 && t >= 0) {
-			result = objects[i];
-			result_t = t;
-		}
-		else if (result != 0 && t < result_t) {
-			result = objects[i];
-			result_t = t;
-		}
-	}
-
-	return result;
+	return false;
 }
 
 OBB* Map::PointInMap(const Point& pt) {
@@ -178,28 +165,23 @@ OBB* FindClosest(const std::vector<OBB*>& set, const Ray& ray) {
 	return closest;
 }
 
-OBB* Raycast(OctreeNode* node, const Ray& ray) {
-	RaycastResult raycast;
-	Raycast(node->bounds, ray, &raycast);
-	float t = raycast.t;
+bool Linetest(OctreeNode* node, const Line& line) {
 
-	if (t >= 0) {  // if hits grid
+	if (ContainsPoint(node->bounds, line.start) ||
+		Linetest(node->bounds, line)) {  // if hits grid
 		if (node->children == 0) {  // if no children
-			return FindClosest(node->obbs, ray);  // first hit
+			for (int i = 0, size = node->obbs.size(); i < size; ++i)
+				if(Linetest(*node->obbs[i], line)) // OBBs
+					return true;
 		}
 		else {  // grid has subdivisions
-			std::vector<OBB*> results;
-			for (int i = 0; i < 8; ++i) {
-				OBB* result = Raycast(&(node->children[i]), ray);
-				if (result != 0) {
-					results.push_back(result);
-				}
-			}
-			return FindClosest(results, ray);
+			for (int i = 0; i < 8; ++i)
+				if (Linetest(&(node->children[i]), line))  // Nodes
+					return true;
 		}
 	}
 
-	return 0;
+	return false;
 }
 
 OBB* PointInOctree(OctreeNode* node, const Point& pt) {

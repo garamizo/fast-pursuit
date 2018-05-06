@@ -20,11 +20,12 @@ typedef struct OctreeNode {
 class Map {
 protected:
 	
-	OctreeNode* octree;
+	
 private:
 	Map(const Map&);
 	Map& operator=(const Map&);
 public:
+	OctreeNode* octree;
 	std::vector<OBB*> objects;
 	inline Map() : octree(0) { } 
 	inline ~Map() {
@@ -36,7 +37,7 @@ public:
 	void AddOBB(OBB* obb);
 	void RemoveOBB(OBB* model);
 
-	OBB* Raycast(const Ray& ray, RaycastResult* outResult);
+	bool Linetest(const Line& line);
 	std::vector<OBB*> Query(const Sphere& sphere);
 	std::vector<OBB*> Query(const AABB& aabb);
 	OBB* PointInMap(const Point& pt);
@@ -51,9 +52,9 @@ void Insert(OctreeNode* node, OBB* obb);
 void Remove(OctreeNode* node, OBB* obb);
 
 OBB* FindClosest(const std::vector<OBB*>& set, const Ray& ray);
-OBB* Raycast(OctreeNode* node, const Ray& ray);
 OBB* PointInOctree(OctreeNode* node, const Point& pt);
 std::vector<OBB*> Query(OctreeNode* node, const Sphere& sphere);
 std::vector<OBB*> Query(OctreeNode* node, const AABB& aabb);
+bool Linetest(OctreeNode* node, const Line& line);
 
 #endif
