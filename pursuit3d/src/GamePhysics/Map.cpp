@@ -70,6 +70,18 @@ std::vector<OBB*> Map::Query(const AABB& aabb) {
 	return result;
 }
 
+bool Map::Raycast(const Ray& ray, RaycastResult& outResult) {
+
+	RaycastResult result;
+	outResult.t = 1e6;
+
+	for(int i = 0; i < objects.size(); i++)
+		if(::Raycast(*objects[i], ray, &result) && result.t < outResult.t)
+			outResult = result;
+
+	return(outResult.t < 1e6);
+}
+
 
 void SplitTree(OctreeNode* node, int depth) {
 	if (depth-- <= 0) { // Decrements depth

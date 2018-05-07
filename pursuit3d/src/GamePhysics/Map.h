@@ -39,6 +39,7 @@ public:
 	void RemoveOBB(OBB* model);
 
 	bool Linetest(const Line& line);
+	bool Raycast(const Ray& ray, RaycastResult& outResult);
 	std::vector<OBB*> Query(const Sphere& sphere);
 	std::vector<OBB*> Query(const AABB& aabb);
 	OBB* PointInMap(const Point& pt);

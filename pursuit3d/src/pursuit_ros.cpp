@@ -6,8 +6,18 @@
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 #include "geometry_msgs/Quaternion.h"
+#include "sensor_msgs/PointCloud2.h"
+
+#include <pcl/io/pcd_io.h>
+// #include <pcl/io/ply_io.h>
+#include <pcl/point_cloud.h>
+// #include <pcl/console/parse.h>
+// #include <pcl/common/transforms.h>
+// #include <pcl/visualization/pcl_visualizer.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 #include <sstream>
+#include <numeric>
 
 #include "matrices.h"
 #include "vectors.h"
@@ -34,10 +44,10 @@ geometry_msgs::Quaternion quat_from_mat3(mat3 mat) {
 void DrawGraph(const SPT& spt, ros::Publisher pub) {
 	visualization_msgs::Marker marker;
 
-	marker.id = 2000;
+	marker.id = 0;
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
-	marker.ns = "my_namespace";
+	marker.ns = "graph";
 	marker.type = visualization_msgs::Marker::ARROW;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
@@ -78,13 +88,13 @@ void DrawObstacles(const Map& map, ros::Publisher pub) {
 	marker.id = 0;
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
-	marker.ns = "my_namespace";
+	marker.ns = "obstacles";
 	marker.type = visualization_msgs::Marker::CUBE;
 	marker.action = visualization_msgs::Marker::ADD;
-	marker.color.a = 0.5; // Don't forget to set the alpha!
-	marker.color.r = 0.0;
-	marker.color.g = 1.0;
-	marker.color.b = 0.0;
+	marker.color.a = 1.0; // Don't forget to set the alpha!
+	marker.color.r = 0.3;
+	marker.color.g = 0.3;
+	marker.color.b = 0.3;
 
 	for(int k = 0; k < map.objects.size(); k++) {
 		marker.id = k;
@@ -104,10 +114,10 @@ void DrawKeypoints(const SPT& spt, ros::Publisher pub) {
 	visualization_msgs::Marker marker;
 
 	// plot keypoints
-	marker.id = 100;
+	marker.id = 0;
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
-	marker.ns = "my_namespace";
+	marker.ns = "keypoints";
 	marker.type = visualization_msgs::Marker::SPHERE;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
@@ -132,10 +142,10 @@ void DrawKeypointLabels(const SPT& spt, ros::Publisher pub) {
 	visualization_msgs::Marker marker;
 
 	// plot keypoints
-	marker.id = 200;
+	marker.id = 0;
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
-	marker.ns = "my_namespace";
+	marker.ns = "keypoints_labels";
 	marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
@@ -161,10 +171,10 @@ void DrawKeypointLabels(const SPT& spt, ros::Publisher pub) {
 void DrawTree(const SPT& spt, ros::Publisher pub) {
 	visualization_msgs::Marker marker;
 
-	marker.id = 1000;
+	marker.id = 0;
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
-	marker.ns = "my_namespace";
+	marker.ns = "tree";
 	marker.type = visualization_msgs::Marker::ARROW;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
@@ -205,19 +215,19 @@ void DrawTree(const SPT& spt, ros::Publisher pub) {
 	// ROS_INFO("%d links created", marker.id - 1000);
 }
 
-void DrawPath(const PathResult& result, ros::Publisher pub) {
+void DrawPath(const PathResult& result, ros::Publisher pub, int id, vec3 color) {
 	visualization_msgs::Marker marker;
 
-	marker.id = 700;
+	marker.id = id;
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
-	marker.ns = "my_namespace";
+	marker.ns = "path";
 	marker.type = visualization_msgs::Marker::ARROW;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
-	marker.color.r = 0.5;
-	marker.color.g = 0.5;
-	marker.color.b = 0.0;
+	marker.color.r = color.x;
+	marker.color.g = color.y;
+	marker.color.b = color.z;
 	marker.scale.x = 0.5;
 	marker.scale.y = 0.5;
 	marker.scale.z = 0.5;
@@ -240,6 +250,141 @@ void DrawPath(const PathResult& result, ros::Publisher pub) {
 		pub.publish( marker );
 	}
 	// ROS_INFO("%d links created", marker.id - 1000);
+}
+
+void DrawRobots(const Planner& planner, ros::Publisher pub) {
+	visualization_msgs::Marker marker;
+	visualization_msgs::Marker text;
+
+	// plot OBB
+	marker.id = 0;
+	marker.header.frame_id = "map";
+	marker.header.stamp = ros::Time();
+	marker.ns = "robots";
+	marker.type = visualization_msgs::Marker::SPHERE;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.color.a = 1.0; // Don't forget to set the alpha!
+	marker.color.r = 0.0;
+	marker.color.g = 0.0;
+	marker.color.b = 1.0;
+
+	marker.scale.x = 3.0;
+	marker.scale.y = 3.0;
+	marker.scale.z = 1.0;
+	marker.pose.orientation.w = 1.0;
+
+	// plot text
+	text.id = 0;
+	text.header.frame_id = "map";
+	text.header.stamp = ros::Time();
+	text.ns = "robots_labels";
+	text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+	text.action = visualization_msgs::Marker::ADD;
+	text.color.a = 1.0; // Don't forget to set the alpha!
+	text.color.r = 1.0;
+	text.color.g = 1.0;
+	text.color.b = 1.0;
+	text.scale.z = 2.0;
+	text.pose.orientation.w = 1.0;
+
+	for(int k = 0; k < planner.p.size(); k++) {
+		marker.id++;
+		marker.pose.position.x = planner.p[k].root.x;
+		marker.pose.position.y = planner.p[k].root.y;
+		marker.pose.position.z = planner.p[k].root.z;
+
+		text.id++;
+		text.pose.position.x = planner.p[k].root.x;
+		text.pose.position.y = planner.p[k].root.y;
+		text.pose.position.z = planner.p[k].root.z + 1.5;
+		text.text = std::string("P") + std::to_string(k);
+	
+		pub.publish( marker );
+		pub.publish( text );
+	}
+
+	// EVADERS
+	marker.color.r = 1.0;
+	marker.color.g = 0.0;
+	marker.color.b = 0.0;
+
+	for(int k = 0; k < planner.e.size(); k++) {
+		marker.id++;
+		marker.pose.position.x = planner.e[k].root.x;
+		marker.pose.position.y = planner.e[k].root.y;
+		marker.pose.position.z = planner.e[k].root.z;
+
+		text.id++;
+		text.pose.position.x = planner.e[k].root.x;
+		text.pose.position.y = planner.e[k].root.y;
+		text.pose.position.z = planner.e[k].root.z + 1.5;
+		text.text = std::string("E") + std::to_string(k);
+	
+		pub.publish( marker );
+		pub.publish( text );
+	}
+
+	// GOALS
+	marker.color.a = 0.3;
+	marker.color.r = 0.0;
+	marker.color.g = 1.0;
+	marker.color.b = 0.0;
+	marker.scale.x = 5.0;
+	marker.scale.y = 5.0;
+	marker.scale.z = 5.0;
+
+	for(int k = 0; k < planner.g.size(); k++) {
+		marker.id++;
+		marker.pose.position.x = planner.g[k].root.x;
+		marker.pose.position.y = planner.g[k].root.y;
+		marker.pose.position.z = planner.g[k].root.z;
+
+		text.id++;
+		text.pose.position.x = planner.g[k].root.x;
+		text.pose.position.y = planner.g[k].root.y;
+		text.pose.position.z = planner.g[k].root.z;
+		text.text = std::string("G") + std::to_string(k);
+	
+		pub.publish( marker );
+		pub.publish( text );
+	}
+}
+
+void DrawConvergence(const std::vector<Point>& pts, ros::Publisher pub, int id) {
+	visualization_msgs::Marker marker;
+
+	marker.id = id;
+	marker.header.frame_id = "map";
+	marker.header.stamp = ros::Time();
+	marker.ns = "convergence";
+	marker.type = visualization_msgs::Marker::ARROW;
+	marker.action = visualization_msgs::Marker::ADD;
+	marker.color.a = 1.0; // Don't forget to set the alpha!
+	marker.color.r = 0.5;
+	marker.color.g = 0.4;
+	marker.color.b = 0.2;
+	marker.scale.x = 0.2;
+	marker.scale.y = 0.7;
+	marker.scale.z = 1.0;
+	marker.pose.orientation.x = 0;
+	marker.pose.orientation.y = 0;
+	marker.pose.orientation.z = 0;
+	marker.pose.orientation.w = 1;
+	marker.points.resize(2);
+
+
+	for(int i = 0; i < pts.size() - 1; i++) {
+		marker.pose.position.x = pts[i].x;
+		marker.pose.position.y = pts[i].y;
+		marker.pose.position.z = pts[i].z;
+
+		marker.id++;
+		marker.points[1].x = pts[i+1].x - pts[i].x;
+		marker.points[1].y = pts[i+1].y - pts[i].y;
+		marker.points[1].z = pts[i+1].z - pts[i].z;
+		pub.publish( marker );
+	}
+	ROS_INFO("Done with convergence");
 }
 
 void radarCallback(const gazebo_msgs::ModelStates) {
@@ -270,6 +415,72 @@ void BuildCampusMap(Map& map) {
 	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
 }
 
+void BuildPointCloud(Planner& planner, ros::Publisher pub) {
+	pcl::PointCloud<pcl::PointXYZRGBA> cloud;
+	pcl::PointXYZRGBA point;
+	InterceptionResult itcp;
+	Point min(-50, -10, 0), max(20, 50, 40);
+	int NDIV = 50;
+
+	for(int i = 0; i < NDIV; i++)
+		for(int j = 0; j < NDIV; j++)
+			for(int k = 0; k < NDIV; k++) {
+		
+				Point eval_point({min.x + i * (max.x - min.x) / NDIV,
+								  min.y + j * (max.y - min.y) / NDIV,
+								  min.z + k * (max.z - min.z) / NDIV});
+
+				if (planner.EvaluatePoint(eval_point, itcp) && fabs(itcp.constraint) < 0.5 && itcp.cost < 40.0) {
+					point.x = eval_point.x;
+					point.y = eval_point.y;
+					point.z = eval_point.z;
+
+					float cmap = 255.0 - 2.0 * fabs(itcp.cost - 24.0) * 255.0 / (40.0 - 24.0);
+					cmap = cmap > 0 ? cmap : 0.0;
+
+					point.r = cmap;
+					point.g = 0;
+					point.b = 255 - cmap;
+					point.a = 255;
+
+					cloud.push_back(point);
+				}
+
+			}
+
+	sensor_msgs::PointCloud2 cloud_msg;
+	pcl::toROSMsg<pcl::PointXYZRGBA>(cloud, cloud_msg);
+	cloud_msg.header.frame_id = "map";
+	cloud_msg.header.stamp = ros::Time();
+
+	pub.publish( cloud_msg );
+	ROS_INFO("Done with cloud!");
+}
+
+void benchmark(Planner& planner) {
+	InterceptionResult itcp;
+	std::vector<Point> sol;
+	Point point;
+	std::vector<int> iters;
+
+	clock_t begin = clock();
+	for(int i = 0; i < 20; i++) {
+		point.x = float(rand() % 100) - 50.0;
+		point.y =  float(rand() % 100) - 50.0;
+		point.z = float(rand() % 50) - 0.0;
+		planner.SolveInterception(point, itcp, sol);
+		iters.push_back(sol.size());
+	}
+	clock_t end = clock();
+
+	ROS_INFO("Interception found? %d\nCost: %f\nConstraint: %f\nCost grad: ", 1, itcp.cost, itcp.constraint);
+	std::cout << itcp.costd << "\nConstraint grad: " << itcp.constraintd
+			  << "\nIterations: " << "?" << "\n";
+
+	ROS_INFO("Elapsed time: %.5f us\n",
+		1e6 * (double(end - begin) / CLOCKS_PER_SEC) / 1);
+}
+
 
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "pursuit");
@@ -279,47 +490,44 @@ int main(int argc, char **argv) {
 	BuildCampusMap(map);
 
 	Planner planner(&map);
-	planner.AddPursuer({10, 10, 2});
-	planner.AddEvader({-50, 20, 2});
-	planner.AddGoal({10, 30, 1});
+	planner.AddPursuer({15, 0, 2}, 2.0f);
+	planner.AddEvader({-40, 25, 20}, 2.0f);
+	planner.AddGoal({10, 20, 1});
 
 	ros::Subscriber sub = n.subscribe("/gazebo/model_states", 100, radarCallback);
 	ros::Publisher pub = n.advertise<std_msgs::String>("chatter", 1000);
 	ros::Publisher pub_marker = n.advertise<visualization_msgs::Marker>("marker_map", 1000);
-	
+	ros::Publisher pub_cloud = n.advertise<sensor_msgs::PointCloud2>("cloud", 1000);
+
+	ros::Rate loop_rate(5);
+	BuildPointCloud(planner, pub_cloud);
+	Point point;
 	InterceptionResult itcp;
-	clock_t begin = clock();
-	bool found = planner.EvaluatePoint({-20, 0, 10}, itcp);
-	clock_t end = clock();
-
-	ROS_INFO("Interception found? %d\nCost: %f\nConstraint: %f\nCost grad: ", found, itcp.cost, itcp.constraint);
-	std::cout << itcp.costd << "\nConstraint grad: " << itcp.constraintd << "\n";
-
-	ROS_INFO("Elapsed time: %.5f us\n",
-		1e6 * (double(end - begin) / CLOCKS_PER_SEC) / 1);
-	
-	ros::Rate loop_rate(10);
+	std::vector<Point> sol;
 
 	int count = 0;
 	while(ros::ok()) {
-
-		DrawObstacles(map, pub_marker);
-		DrawKeypoints(planner.p[0], pub_marker);
-		DrawKeypointLabels(planner.p[0], pub_marker);
-		// DrawGraph(ptree, pub_marker);
-		DrawTree(planner.p[0], pub_marker);
-		DrawPath(itcp.ppath, pub_marker);
 		
-		std_msgs::String msg;
-		std::stringstream ss;
-		ss << "Hello World! " << count;
-		msg.data = ss.str();
+		point.x = float(rand() % 100) - 50.0;
+		point.y =  float(rand() % 100) - 50.0;
+		point.z = float(rand() % 50) - 0.0;
+		std::cout << point << "\n";
+		if(planner.SolveInterception(point, itcp, sol)) {
+			std::cout << itcp.cost << "\n";
+			DrawConvergence(sol, pub_marker, (count+=50) % 3000);
 
-		// ROS_INFO("%s", msg.data.c_str());
-		pub.publish(msg);
+			DrawObstacles(map, pub_marker);
+			// DrawKeypoints(planner.p[0], pub_marker);
+			// DrawKeypointLabels(planner.p[0], pub_marker);
+			// DrawGraph(ptree, pub_marker);
+			// DrawTree(planner.p[0], pub_marker);
+			DrawPath(itcp.ppath, pub_marker, 700, {0, 0, 1.0});
+			DrawPath(itcp.epath, pub_marker, 710, {1.0, 0, 0.0});
+			DrawRobots(planner, pub_marker);
+		}
+
 		ros::spinOnce();
 		loop_rate.sleep();
-		++count;
 	}
 
 	return 0;

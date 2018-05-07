@@ -46,9 +46,7 @@ public:
 
 typedef struct InterceptionResult {
 	Point point;
-	SPT* p;
-	SPT* e;
-	SPT* g;
+	SPT *p, *e, *g;
 	float cost, constraint;
 	vec3 costd, constraintd;
 	PathResult ppath, epath, gpath;
@@ -59,11 +57,13 @@ class Planner {
 public:
 	Map* map;
 	std::vector<SPT> p, e, g;
+	std::vector<float> pvel, evel, gvel;
+	const float DIST_MIN = 1e-1;
 
 	Planner(Map* _map);
-	bool SolveInterception(InterceptionResult& result);
-	bool AddPursuer(const Point& point);
-	bool AddEvader(const Point& point);
+	bool SolveInterception(Point point, InterceptionResult& result, std::vector<Point>& sol);
+	bool AddPursuer(const Point& point, float vel);
+	bool AddEvader(const Point& point, float vel);
 	bool AddGoal(const Point& point);
 	bool EvaluatePoint(const Point& point, InterceptionResult& intercept);
 };

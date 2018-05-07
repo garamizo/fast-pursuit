@@ -12,8 +12,9 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
-  urdf
 )
+
+find_package(PCL 1.3 REQUIRED COMPONENTS common io)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -122,7 +123,12 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/src/GamePhysics
   ${PROJECT_SOURCE_DIR}/src/Pursuit
   ${catkin_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
 )
+
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
 
 
 ## Declare a C++ library
@@ -169,6 +175,8 @@ target_link_libraries(test
 target_link_libraries(pursuit
   ${catkin_LIBRARIES}
   pursuit_lib
+  ${PCL_COMMON_LIBRARIES}
+  ${PCL_IO_LIBRARIES}
 )
 
 #############

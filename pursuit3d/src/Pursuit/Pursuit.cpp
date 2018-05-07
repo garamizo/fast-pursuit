@@ -202,17 +202,19 @@ Planner::Planner(Map* _map) {
 	map = _map;
 }
 
-bool Planner::AddPursuer(const Point& point) {
+bool Planner::AddPursuer(const Point& point, float vel) {
 	if(!map->PointInMap(point)) {
 		p.push_back(SPT(map, point));
+		pvel.push_back(vel);
 		return true;
 	}
 	return false;
 }
 
-bool Planner::AddEvader(const Point& point) {
+bool Planner::AddEvader(const Point& point, float vel) {
 	if(!map->PointInMap(point)) {
 		e.push_back(SPT(map, point));
+		evel.push_back(vel);
 		return true;
 	}
 	return false;
@@ -221,26 +223,65 @@ bool Planner::AddEvader(const Point& point) {
 bool Planner::AddGoal(const Point& point) {
 	if(!map->PointInMap(point)) {
 		g.push_back(SPT(map, point));
+		gvel.push_back(1.0);
 		return true;
 	}
 	return false;
 }
 
-bool Planner::SolveInterception(InterceptionResult& result) {
+bool Planner::SolveInterception(Point point, InterceptionResult& result, std::vector<Point>& sol) {
 
+	sol.resize(0);
+	sol.push_back(point);
+	Point last_point = point;
+	bool valid = true;
+
+	int MAX_ITER = 30;
+	for(int i = 0; i < MAX_ITER; i++) {
+		valid = EvaluatePoint(point, result);
+		if(valid) {
+			if (i > 0 && Magnitude(point - last_point) < DIST_MIN)
+				return true;
+
+			last_point = point;
+
+			// std::cout << result.constraint << "\t" << result.cost << '\t' << point << '\n';
+
+			vec3 direction = result.costd - Project(result.costd, result.constraintd);
+			float mag = 5.0; // 1.0 * (i + MAX_ITER/1.5) * 20.0 / MAX_ITER;
+			point = point - result.constraintd * result.constraint
+						  - direction * mag;
+		}
+		else {
+			Ray ray(last_point, point - last_point);
+			RaycastResult ray_result;
+			if (map->Raycast(ray, ray_result)) {
+				// std::cout << '*';
+				point = ray.origin + ray.direction * ray_result.t * 0.9;		
+			}
+			else  // can't recover
+				return false;
+		}
+
+		sol.push_back(point);
+	}
+	return valid;
 }
 
 bool Planner::EvaluatePoint(const Point& point, InterceptionResult& intercept) {
 
-	float mindist = 1e6;
+	float mintime = 1e6;
 	PathResult path;
 	bool valid = false;
+	int idx;
 
 	for(int i = 0; i < p.size(); i++) {
-		if (p[i].findPath(point, path) && path.dist < mindist) {
-			mindist = path.dist;
+		bool reached = p[i].findPath(point, path);
+		if (reached && path.dist / pvel[i] < mintime) {
+			mintime = path.dist / pvel[i];
 			intercept.p = &p[i];
 			intercept.ppath = path;
+			idx = i;
 			valid = true;
 		}
 	}
@@ -257,9 +298,9 @@ bool Planner::EvaluatePoint(const Point& point, InterceptionResult& intercept) {
 
 	intercept.point = point;
 	intercept.cost = intercept.gpath.dist;
-	intercept.constraint = intercept.ppath.dist - intercept.epath.dist;
+	intercept.constraint = intercept.ppath.dist / pvel[idx] - intercept.epath.dist / evel[0];
 	intercept.costd = intercept.gpath.arrive;
-	intercept.constraintd  = intercept.ppath.arrive - intercept.epath.arrive;
+	intercept.constraintd  = intercept.ppath.arrive / pvel[idx] - intercept.epath.arrive / evel[0];
 
 	return true;
 }
