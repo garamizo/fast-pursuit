@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cfloat>
 #include <list>
+#include <iostream>
 
 #define CMP(x, y) \
     (fabsf(x - y) <= FLT_EPSILON * fmaxf(1.0f, fmaxf(fabsf(x), fabsf(y))))
@@ -781,6 +782,9 @@ bool Raycast(const Plane& plane, const Ray& ray, RaycastResult* outResult) {
     }
 
     float t = (plane.distance - pn) / nd;
+    // std::cout << "From within -\nt: " << t << "\n"
+    //           << "dn: " << nd << "\n"
+    //           << "pn: " << pn << "\n";
 
     // t must be positive
     if (t >= 0.0f) {

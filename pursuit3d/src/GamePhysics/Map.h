@@ -42,7 +42,7 @@ public:
 	bool Raycast(const Ray& ray, RaycastResult& outResult);
 	std::vector<OBB*> Query(const Sphere& sphere);
 	std::vector<OBB*> Query(const AABB& aabb);
-	OBB* PointInMap(const Point& pt);
+	bool PointInMap(const Point& pt);
 
 	bool Accelerate(const vec3& position, float size);
 	friend std::ostream& operator<<(std::ostream& os, const Map& m);

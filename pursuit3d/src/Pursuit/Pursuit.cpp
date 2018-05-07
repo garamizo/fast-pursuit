@@ -255,12 +255,20 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, std::ve
 		else {
 			Ray ray(last_point, point - last_point);
 			RaycastResult ray_result;
-			if (map->Raycast(ray, ray_result)) {
+			bool collide = map->Raycast(ray, ray_result);
+
+			if (collide && 
+				ray_result.t <= Distance(point, last_point)) {
 				// std::cout << '*';
-				point = ray.origin + ray.direction * ray_result.t * 0.9;		
+				point = point - Project(point - last_point, ray_result.normal);  
+				// point = ray.origin + ray.direction * ray_result.t * 0.9;		
 			}
-			else  // can't recover
+			else  {  // can't recover
+				std::cout << "Fail: " << last_point << " -> " << point << "\t"
+						  << "t: " << ray_result.t << "\t" << map->PointInMap(last_point) << "\t"
+						  << map->PointInMap(point) << "\t" << Distance(point, last_point) << "\n";
 				return false;
+			}
 		}
 
 		sol.push_back(point);
@@ -303,4 +311,16 @@ bool Planner::EvaluatePoint(const Point& point, InterceptionResult& intercept) {
 	intercept.constraintd  = intercept.ppath.arrive / pvel[idx] - intercept.epath.arrive / evel[0];
 
 	return true;
+}
+
+void Planner::Step() {
+	// Update trees
+
+	// Sample valid point on each grid
+
+
+	// Solve for each initial guess
+
+	// Assign solutions to tracks and compute variance
+
 }

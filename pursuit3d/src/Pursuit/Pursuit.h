@@ -66,6 +66,7 @@ public:
 	bool AddEvader(const Point& point, float vel);
 	bool AddGoal(const Point& point);
 	bool EvaluatePoint(const Point& point, InterceptionResult& intercept);
+	void Step();
 };
 
 #endif

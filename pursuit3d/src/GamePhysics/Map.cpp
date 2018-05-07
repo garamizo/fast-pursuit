@@ -1,6 +1,7 @@
 #include "Map.h"
 #include <algorithm>
 #include <list>
+#include <iostream>
 
 void Map::AddOBB(OBB* obb) {
 	if (std::find(objects.begin(), objects.end(), obb) != objects.end()) {
@@ -16,6 +17,9 @@ void Map::RemoveOBB(OBB* obb) {
 
 bool Map::Linetest(const Line& line) {
 
+	if (line.end.z < 0 || line.start.z < 0)
+		return true;
+
 	if (octree != 0) {
 		// :: lets the compiler know to look outside class scope
 		return ::Linetest(octree, line);
@@ -28,16 +32,20 @@ bool Map::Linetest(const Line& line) {
 	return false;
 }
 
-OBB* Map::PointInMap(const Point& pt) {
+bool Map::PointInMap(const Point& pt) {
+	// return index of object or -1 is ground
+	if(pt.z < 0)
+		return true;
+
 	if (octree != 0) {
-		return PointInOctree(octree, pt);
+		return(PointInOctree(octree, pt) != NULL);
 	}
 
 	for (int i = 0, size = objects.size(); i < size; ++i)
 		if(PointInOBB(pt, *objects[i]))
-			return objects[i];
+			return true;
 
-	return 0;
+	return false;
 }
 
 std::vector<OBB*> Map::Query(const Sphere& sphere) {
@@ -73,13 +81,27 @@ std::vector<OBB*> Map::Query(const AABB& aabb) {
 bool Map::Raycast(const Ray& ray, RaycastResult& outResult) {
 
 	RaycastResult result;
+	bool hit_obstacle = false;
 	outResult.t = 1e6;
 
-	for(int i = 0; i < objects.size(); i++)
-		if(::Raycast(*objects[i], ray, &result) && result.t < outResult.t)
-			outResult = result;
+	if (::Raycast(Plane({0, 0, 1}, 0), ray, &result)) { // test ground
+		outResult = result;
+		hit_obstacle = true;
+	}
+	// std::cout << "outResult t: " << outResult.t << "\n";
 
-	return(outResult.t < 1e6);
+	for(int i = 0; i < objects.size(); i++) {
+		bool flag = ::Raycast(*objects[i], ray, &result);
+		if(flag && result.t < outResult.t) {
+			hit_obstacle = true;
+			outResult = result;
+		}
+		// std::cout << "Rays: " << result.t << "\t" 
+		// 		  << "Flag: " << flag << "\t" 
+		// 		  << "outResult.t : " << outResult.t << "\n"; 
+	}
+
+	return(hit_obstacle);
 }
 
 
