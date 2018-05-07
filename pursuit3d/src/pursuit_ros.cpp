@@ -28,6 +28,7 @@
 #include <cmath>
 #include <cfloat>
 #include <ctime>
+#include <boost/algorithm/clamp.hpp>
 
 geometry_msgs::Quaternion quat_from_mat3(mat3 mat) {
 	tf2::Quaternion quat;
@@ -435,8 +436,8 @@ void BuildPointCloud(Planner& planner, ros::Publisher pub) {
 					point.y = eval_point.y;
 					point.z = eval_point.z;
 
-					float cmap = 255.0 - 2.0 * fabs(itcp.cost - 24.0) * 255.0 / (40.0 - 24.0);
-					cmap = cmap > 0 ? cmap : 0.0;
+					float cmin = 19.0;
+					float cmap = boost::algorithm::clamp(255.0 - 2.0 * (itcp.cost - cmin) * 255.0 / (40.0 - cmin), 0.0, 255.0);
 
 					point.r = cmap;
 					point.g = 0;
@@ -490,8 +491,9 @@ int main(int argc, char **argv) {
 	BuildCampusMap(map);
 
 	Planner planner(&map);
-	planner.AddPursuer({15, 0, 2}, 2.0f);
-	planner.AddEvader({-40, 25, 20}, 2.0f);
+	planner.AddPursuer({15, 0, 2}, 1.0f);
+	planner.AddPursuer({15, 40, 2}, 1.0f);
+	planner.AddEvader({-20, 30, 30}, 1.0f);
 	planner.AddGoal({10, 20, 1});
 
 	ros::Subscriber sub = n.subscribe("/gazebo/model_states", 100, radarCallback);
