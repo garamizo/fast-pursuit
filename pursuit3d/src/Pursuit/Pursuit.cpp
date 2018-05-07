@@ -229,10 +229,12 @@ bool Planner::AddGoal(const Point& point) {
 	return false;
 }
 
-bool Planner::SolveInterception(Point point, InterceptionResult& result, std::vector<Point>& sol) {
+bool Planner::SolveInterception(Point point, InterceptionResult& result, std::vector<Point>* sol) {
 
-	sol.resize(0);
-	sol.push_back(point);
+	if (sol != NULL) {
+		sol->resize(0);
+		sol->push_back(point);
+	}
 	Point last_point = point;
 	bool valid = true;
 
@@ -264,14 +266,15 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, std::ve
 				// point = ray.origin + ray.direction * ray_result.t * 0.9;		
 			}
 			else  {  // can't recover
-				std::cout << "Fail: " << last_point << " -> " << point << "\t"
-						  << "t: " << ray_result.t << "\t" << map->PointInMap(last_point) << "\t"
-						  << map->PointInMap(point) << "\t" << Distance(point, last_point) << "\n";
+				// std::cout << "Fail: " << last_point << " -> " << point << "\t"
+				// 		  << "t: " << ray_result.t << "\t" << map->PointInMap(last_point) << "\t"
+				// 		  << map->PointInMap(point) << "\t" << Distance(point, last_point) << "\n";
 				return false;
 			}
 		}
 
-		sol.push_back(point);
+		if (sol != NULL)
+			sol->push_back(point);
 	}
 	return valid;
 }
@@ -313,14 +316,51 @@ bool Planner::EvaluatePoint(const Point& point, InterceptionResult& intercept) {
 	return true;
 }
 
-void Planner::Step() {
+std::vector<InterceptionResult> Planner::Step() {
 	// Update trees
+	InterceptionResult result;
+	std::vector<InterceptionResult> sols;
+
+	clock_t begin = clock();
+	vec3 max({50, 50, 50}), min({-50, -50, 0});
+	int NDIV = 10;
+	vec3 ds({(max.x - min.x) / NDIV, (max.y - min.y) / NDIV, (max.z - min.z) / NDIV});
+	for(int i = 0; i < NDIV; i++)
+		for(int j = 0; j < NDIV; j++)
+			for(int k = 0; k < NDIV; k++) {
+
+				Point point({min.x + i * (max.x - min.x) / NDIV,
+								  min.y + j * (max.y - min.y) / NDIV,
+								  min.z + k * (max.z - min.z) / NDIV});
+				point.x += float(rand() - RAND_MAX/2) * ds.x * 2 / RAND_MAX;
+				point.y += float(rand() - RAND_MAX/2) * ds.y * 2 / RAND_MAX;
+				point.z += float(rand() - RAND_MAX/2) * ds.z * 2 / RAND_MAX;
+
+				if (SolveInterception(point, result, NULL))
+					if (fabs(result.constraint) < 1.0)
+						sols.push_back(result);
+			}
+	clock_t end = clock();
+
 
 	// Sample valid point on each grid
+
+	float vmin = sols[0].cost,
+		  vmax = sols[0].cost;
+	for (int i = 1; i < sols.size(); i+=1) {
+		vmin = sols[i].cost < vmin ? sols[i].cost : vmin;
+		vmax = sols[i].cost > vmin ? sols[i].cost : vmin;
+	}
+
+	std::cout << "# of sols: " << sols.size() << "\t"
+			  << "Ratio: " << 100.0 * sols.size() / (NDIV*NDIV*NDIV) << "\t"
+			  << "Time: " << 1e3 * (double(end - begin) / CLOCKS_PER_SEC) / (NDIV*NDIV*NDIV) << " ms/sol"
+			  << "Min cost: " << vmin << "\t" << "Max cost: " << vmax << "\n" ;
+
 
 
 	// Solve for each initial guess
 
 	// Assign solutions to tracks and compute variance
-
+	return(sols);
 }

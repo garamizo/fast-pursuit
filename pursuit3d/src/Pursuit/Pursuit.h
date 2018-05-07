@@ -18,7 +18,7 @@ struct PathResult {
 
 class SPT {
 public:
-	float edge_resolution = 5.0f;
+	float edge_resolution = 3.0f;
 	float inflate = 1.01f;
 	float DIST_MAX = 1e6;
 
@@ -61,12 +61,12 @@ public:
 	const float DIST_MIN = 1e-1;
 
 	Planner(Map* _map);
-	bool SolveInterception(Point point, InterceptionResult& result, std::vector<Point>& sol);
+	bool SolveInterception(Point point, InterceptionResult& result, std::vector<Point>* sol);
 	bool AddPursuer(const Point& point, float vel);
 	bool AddEvader(const Point& point, float vel);
 	bool AddGoal(const Point& point);
 	bool EvaluatePoint(const Point& point, InterceptionResult& intercept);
-	void Step();
+	std::vector<InterceptionResult> Step();
 };
 
 #endif

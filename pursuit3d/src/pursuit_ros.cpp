@@ -122,12 +122,12 @@ void DrawKeypoints(const SPT& spt, ros::Publisher pub) {
 	marker.type = visualization_msgs::Marker::SPHERE;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
-	marker.color.r = 1.0;
+	marker.color.r = 0.0;
 	marker.color.g = 0.0;
 	marker.color.b = 0.0;
-	marker.scale.x = 0.5;
-	marker.scale.y = 0.5;
-	marker.scale.z = 0.5;
+	marker.scale.x = 0.3;
+	marker.scale.y = 0.3;
+	marker.scale.z = 0.3;
 
 	for(int k = 0; k < spt.pt.size(); k++) {
 		marker.id++;
@@ -282,10 +282,10 @@ void DrawRobots(const Planner& planner, ros::Publisher pub) {
 	text.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
 	text.action = visualization_msgs::Marker::ADD;
 	text.color.a = 1.0; // Don't forget to set the alpha!
-	text.color.r = 1.0;
-	text.color.g = 1.0;
-	text.color.b = 1.0;
-	text.scale.z = 2.0;
+	text.color.r = 0.0;
+	text.color.g = 0.0;
+	text.color.b = 0.0;
+	text.scale.z = 5.0;
 	text.pose.orientation.w = 1.0;
 
 	for(int k = 0; k < planner.p.size(); k++) {
@@ -296,8 +296,8 @@ void DrawRobots(const Planner& planner, ros::Publisher pub) {
 
 		text.id++;
 		text.pose.position.x = planner.p[k].root.x;
-		text.pose.position.y = planner.p[k].root.y;
-		text.pose.position.z = planner.p[k].root.z + 1.5;
+		text.pose.position.y = planner.p[k].root.y - 5;
+		text.pose.position.z = planner.p[k].root.z + 2.5;
 		text.text = std::string("P") + std::to_string(k);
 	
 		pub.publish( marker );
@@ -317,8 +317,8 @@ void DrawRobots(const Planner& planner, ros::Publisher pub) {
 
 		text.id++;
 		text.pose.position.x = planner.e[k].root.x;
-		text.pose.position.y = planner.e[k].root.y;
-		text.pose.position.z = planner.e[k].root.z + 1.5;
+		text.pose.position.y = planner.e[k].root.y - 5;
+		text.pose.position.z = planner.e[k].root.z + 2.5;
 		text.text = std::string("E") + std::to_string(k);
 	
 		pub.publish( marker );
@@ -326,7 +326,7 @@ void DrawRobots(const Planner& planner, ros::Publisher pub) {
 	}
 
 	// GOALS
-	marker.color.a = 0.3;
+	marker.color.a = 1.0;
 	marker.color.r = 0.0;
 	marker.color.g = 1.0;
 	marker.color.b = 0.0;
@@ -342,8 +342,8 @@ void DrawRobots(const Planner& planner, ros::Publisher pub) {
 
 		text.id++;
 		text.pose.position.x = planner.g[k].root.x;
-		text.pose.position.y = planner.g[k].root.y;
-		text.pose.position.z = planner.g[k].root.z;
+		text.pose.position.y = planner.g[k].root.y - 5;
+		text.pose.position.z = planner.g[k].root.z + 2.5;
 		text.text = std::string("G") + std::to_string(k);
 	
 		pub.publish( marker );
@@ -431,12 +431,12 @@ void BuildPointCloud(Planner& planner, ros::Publisher pub) {
 								  min.y + j * (max.y - min.y) / NDIV,
 								  min.z + k * (max.z - min.z) / NDIV});
 
-				if (planner.EvaluatePoint(eval_point, itcp) && fabs(itcp.constraint) < 1.0 && itcp.cost < 40.0) {
+				if (planner.EvaluatePoint(eval_point, itcp) && fabs(itcp.constraint) < 1.0 && itcp.cost < 70.0) {
 					point.x = eval_point.x;
 					point.y = eval_point.y;
 					point.z = eval_point.z;
 
-					float cmin = 5.0;
+					float cmin = 24.54;
 					float cmap = boost::algorithm::clamp(255.0 - 2.0 * (itcp.cost - cmin) * 255.0 / (40.0 - cmin), 0.0, 255.0);
 
 					point.r = boost::algorithm::clamp(cmap + 50, 0, 255);
@@ -469,7 +469,7 @@ void benchmark(Planner& planner) {
 		point.x = float(rand() % 100) - 50.0;
 		point.y =  float(rand() % 100) - 50.0;
 		point.z = float(rand() % 50) - 0.0;
-		planner.SolveInterception(point, itcp, sol);
+		planner.SolveInterception(point, itcp, &sol);
 		iters.push_back(sol.size());
 	}
 	clock_t end = clock();
@@ -483,6 +483,34 @@ void benchmark(Planner& planner) {
 }
 
 
+void BuildInterceptCloud(std::vector<InterceptionResult> sols, ros::Publisher pub) {
+
+	pcl::PointCloud<pcl::PointXYZRGBA> cloud;
+	pcl::PointXYZRGBA point;
+
+	for(int i = 0; i < sols.size(); i++) {
+
+		point.x = sols[i].point.x;
+		point.y = sols[i].point.y;
+		point.z = sols[i].point.z;
+
+		point.r = 255;
+		point.g = 59;
+		point.b = 0;
+		point.a = 255;
+
+		cloud.push_back(point);
+	}
+
+	sensor_msgs::PointCloud2 cloud_msg;
+	pcl::toROSMsg<pcl::PointXYZRGBA>(cloud, cloud_msg);
+	cloud_msg.header.frame_id = "map";
+	cloud_msg.header.stamp = ros::Time();
+
+	pub.publish( cloud_msg );
+}
+
+
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "pursuit");
 	ros::NodeHandle n;
@@ -491,10 +519,10 @@ int main(int argc, char **argv) {
 	BuildCampusMap(map);
 
 	Planner planner(&map);
-	planner.AddPursuer({15, 0, 10}, 1.0f);
+	planner.AddPursuer({-40, 0, 10}, 1.0f);
 	planner.AddPursuer({15, 40, 2}, 1.0f);
-	planner.AddPursuer({20, 25, 30}, 0.5f);
-	planner.AddEvader({-30, 30, 30}, 2.0f);
+	planner.AddPursuer({20, 25, 30}, 1.5f);
+	planner.AddEvader({-30, 30, 30}, 1.2f);
 	planner.AddGoal({10, 20, 1});
 
 	// Line line({-9.10886, 27.0442, 7.62221}, {-6.98556, 39.0861, -4.62252});
@@ -514,46 +542,47 @@ int main(int argc, char **argv) {
 	ros::Publisher pub = n.advertise<std_msgs::String>("chatter", 1000);
 	ros::Publisher pub_marker = n.advertise<visualization_msgs::Marker>("marker_map", 1000);
 	ros::Publisher pub_cloud = n.advertise<sensor_msgs::PointCloud2>("cloud", 1000);
+	ros::Publisher pub_cloud2 = n.advertise<sensor_msgs::PointCloud2>("cloud_intercept", 1000);
 
 	ros::Rate loop_rate(5);
 	Point point;
 	InterceptionResult itcp;
 	std::vector<Point> sol;
 
-
-
-	// Point point2({-20, 50, 20});
-	// bool success = planner.SolveInterception(point2, itcp, sol);
-	// std::cout << "Flag: " << success << "\t"
-	// 		  << "itcp.cost: " << itcp.cost << "\n";
-
+	std::vector<InterceptionResult> sols = planner.Step();
+	BuildInterceptCloud(sols, pub_cloud2);
 	// return 0;
-
-
-
-
 	BuildPointCloud(planner, pub_cloud);
 
 	int count = 0;
 	while(ros::ok()) {
 		
-		point.x = float(rand() % 100) - 50.0;
-		point.y =  float(rand() % 50) - 0.0;
-		point.z = float(rand() % 50) - 0.0;
-		std::cout << "*" << "\n";
-		if(planner.SolveInterception(point, itcp, sol)) {
-			// std::cout << itcp.cost << "\n";
-			DrawConvergence(sol, pub_marker, (count+=50) % 3000);
+		// point.x = float(rand() % 100) - 50.0;
+		// point.y =  float(rand() % 100) - 50.0;
+		// point.z = float(rand() % 50) - 0.0;
+		// std::cout << "*" << "\n";
+		// if(planner.SolveInterception(point, itcp, &sol)) {
+		// 	// std::cout << itcp.cost << "\n";
+		// 	DrawConvergence(sol, pub_marker, (count+=50) % 3000);
 
-			DrawObstacles(map, pub_marker);
-			// DrawKeypoints(planner.p[0], pub_marker);
-			// DrawKeypointLabels(planner.p[0], pub_marker);
-			// DrawGraph(ptree, pub_marker);
-			// DrawTree(planner.p[0], pub_marker);
-			DrawPath(itcp.ppath, pub_marker, 700, {0, 0, 1.0});
-			DrawPath(itcp.epath, pub_marker, 710, {1.0, 0, 0.0});
-			DrawRobots(planner, pub_marker);
-		}
+		// 	DrawObstacles(map, pub_marker);
+		// 	// DrawKeypoints(planner.p[0], pub_marker);
+		// 	// DrawKeypointLabels(planner.p[0], pub_marker);
+		// 	// DrawGraph(ptree, pub_marker);
+		// 	// DrawTree(planner.p[0], pub_marker);
+		// 	DrawPath(itcp.ppath, pub_marker, 700, {0, 0, 1.0});
+		// 	DrawPath(itcp.epath, pub_marker, 710, {1.0, 0, 0.0});
+		// 	DrawRobots(planner, pub_marker);
+		// }
+
+		DrawObstacles(map, pub_marker);
+		DrawKeypoints(planner.p[0], pub_marker);
+		// DrawKeypointLabels(planner.p[0], pub_marker);
+		// DrawGraph(ptree, pub_marker);
+		// DrawTree(planner.p[0], pub_marker);
+		// DrawPath(itcp.ppath, pub_marker, 700, {0, 0, 1.0});
+		// DrawPath(itcp.epath, pub_marker, 710, {1.0, 0, 0.0});
+		DrawRobots(planner, pub_marker);
 
 		ros::spinOnce();
 		loop_rate.sleep();
