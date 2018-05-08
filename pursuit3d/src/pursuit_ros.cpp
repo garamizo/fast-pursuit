@@ -180,8 +180,8 @@ void DrawTree(const SPT& spt, ros::Publisher pub) {
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
 	marker.color.r = 0.0;
-	marker.color.g = 1.0;
-	marker.color.b = 1.0;
+	marker.color.g = 0.0;
+	marker.color.b = 0.0;
 	marker.scale.x = 0.1;
 	marker.scale.y = 0.1;
 	marker.scale.z = 0.1;
@@ -399,7 +399,7 @@ void radarCallback(const gazebo_msgs::ModelStates) {
 	// command agents
 }
 
-void BuildCampusMap(Map& map) {
+void BuildProblem(Map& map, Planner& planner) {
 	// build campus map
 	float th = -10 * M_PI / 180.0;
 	mat3 rot = Transpose(mat3({std::cos(th), -std::sin(th), 0, 
@@ -414,6 +414,13 @@ void BuildCampusMap(Map& map) {
 	map.AddOBB(chem);
 	map.AddOBB(mub);
 	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
+
+	planner.map = &map;
+	planner.AddPursuer({-40, 0, 10}, 1.0f);
+	planner.AddPursuer({15, 40, 2}, 1.0f);
+	planner.AddPursuer({20, 25, 30}, 1.5f);
+	planner.AddEvader({-30, 30, 30}, 1.2f);
+	planner.AddGoal({10, 20, 1});
 }
 
 void BuildPointCloud(Planner& planner, ros::Publisher pub) {
@@ -437,11 +444,11 @@ void BuildPointCloud(Planner& planner, ros::Publisher pub) {
 					point.z = eval_point.z;
 
 					float cmin = 24.54;
-					float cmap = boost::algorithm::clamp(255.0 - 2.0 * (itcp.cost - cmin) * 255.0 / (40.0 - cmin), 0.0, 255.0);
+					float cmap = boost::algorithm::clamp(2.0 * (itcp.cost - cmin) * 255.0 / (40.0 - cmin), 0.0, 255.0);
 
-					point.r = boost::algorithm::clamp(cmap + 50, 0, 255);
-					point.g = cmap / 2 + 30;
-					point.b = cmap / 6 + 50;
+					point.r = boost::algorithm::clamp(255, 0, 255);
+					point.g = boost::algorithm::clamp(cmap * 0.7 + 77, 0, 255);
+					point.b = boost::algorithm::clamp(cmap, 0, 255);
 					point.a = 255;
 
 					cloud.push_back(point);
@@ -495,8 +502,8 @@ void BuildInterceptCloud(std::vector<InterceptionResult> sols, ros::Publisher pu
 		point.z = sols[i].point.z;
 
 		point.r = 255;
-		point.g = 59;
-		point.b = 0;
+		point.g = 100;
+		point.b = 30;
 		point.a = 255;
 
 		cloud.push_back(point);
@@ -512,31 +519,49 @@ void BuildInterceptCloud(std::vector<InterceptionResult> sols, ros::Publisher pu
 
 
 int main(int argc, char **argv) {
-	ros::init(argc, argv, "pursuit");
-	ros::NodeHandle n;
+	std::srand(std::time(0));
 
 	Map map;
-	BuildCampusMap(map);
+	Planner planner;
+	BuildProblem(map, planner);
 
-	Planner planner(&map);
-	planner.AddPursuer({-40, 0, 10}, 1.0f);
-	planner.AddPursuer({15, 40, 2}, 1.0f);
-	planner.AddPursuer({20, 25, 30}, 1.5f);
-	planner.AddEvader({-30, 30, 30}, 1.2f);
-	planner.AddGoal({10, 20, 1});
+	Point point;
+	InterceptionResult itcp;
+	std::vector<Point> sol;
 
-	// Line line({-9.10886, 27.0442, 7.62221}, {-6.98556, 39.0861, -4.62252});
-	// Ray ray(line.start, line.end - line.start);
-	// RaycastResult result;
-	// std::cout << "Ray: " << ray << "\n";
-	// std::cout << "Map -\nBool: " << map.Raycast(ray, result) << "\n";
-	// std::cout << "t: " << result.t << "\n";
-	// std::cout << "Point Inside: " << map.PointInMap(line.end) << "\n";
-	// std::cout << "Length: " << Length(line) << "\n";
-	// // Point p2 = line.start - Project(line.end - line.start, result.normal); 
+	// FILE * pFile;
+	// char text[200];
 
+	// std::cout << "ds\tcgain\tggain\t# sols\tRatio\tTime\t\tMin\tMax\tMean\tOpt <\n";
+	// float cgain[] = {0.05, 0.1, 0.2, 0.3, 0.4};
+	// float ggain[] = {0.1, 0.3, 0.5, 1.0, 1.5};
+	// float edge_res[] = {3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.3};
+	// for(int i = 0; i < 7; i++) {
+	// 	// planner.Reconfigure(2.0, 0.2, ggain[i]);
+	// 	// planner.Reconfigure(2.0, cgain[i], 0.5);
 
+	// 	planner.Reconfigure(edge_res[i], 0.2, 0.5);
+	// 	for(int j = 0; j < 10; j++)
+	// 		std::vector<InterceptionResult> sols = planner.Step();
+
+		// sprintf(text, "results%d.csv", i);
+		// pFile = fopen (text, "w");
+
+		// for (int j = 0, size = sols.size(); j < size; j++)
+		// 	fprintf(pFile, "%.10f\t%.10f\t%.10f\t%.10f\t%.10f\n", sols[j].point.x,
+		// 		sols[j].point.y, sols[j].point.z, sols[j].cost, sols[j].constraint);
+
+		// fclose(pFile);
+
+	// }
 	// return 0;
+
+	// planner.Reconfigure(0.5, 0.2, 0.5);
+	// planner.Step();
+	// return 0;
+
+	ros::init(argc, argv, "pursuit");
+	ros::NodeHandle n;
 
 	ros::Subscriber sub = n.subscribe("/gazebo/model_states", 100, radarCallback);
 	ros::Publisher pub = n.advertise<std_msgs::String>("chatter", 1000);
@@ -544,15 +569,11 @@ int main(int argc, char **argv) {
 	ros::Publisher pub_cloud = n.advertise<sensor_msgs::PointCloud2>("cloud", 1000);
 	ros::Publisher pub_cloud2 = n.advertise<sensor_msgs::PointCloud2>("cloud_intercept", 1000);
 
-	ros::Rate loop_rate(5);
-	Point point;
-	InterceptionResult itcp;
-	std::vector<Point> sol;
+	// std::vector<InterceptionResult> sols = planner.Step();
+	// BuildInterceptCloud(sols, pub_cloud2);
+	// BuildPointCloud(planner, pub_cloud);
 
-	std::vector<InterceptionResult> sols = planner.Step();
-	BuildInterceptCloud(sols, pub_cloud2);
-	// return 0;
-	BuildPointCloud(planner, pub_cloud);
+	ros::Rate loop_rate(5);
 
 	int count = 0;
 	while(ros::ok()) {
@@ -563,7 +584,7 @@ int main(int argc, char **argv) {
 		// std::cout << "*" << "\n";
 		// if(planner.SolveInterception(point, itcp, &sol)) {
 		// 	// std::cout << itcp.cost << "\n";
-		// 	DrawConvergence(sol, pub_marker, (count+=50) % 3000);
+		// 	DrawConvergence(sol, pub_marker, (count+=40) % 3000);
 
 		// 	DrawObstacles(map, pub_marker);
 		// 	// DrawKeypoints(planner.p[0], pub_marker);
@@ -580,7 +601,7 @@ int main(int argc, char **argv) {
 		// DrawKeypointLabels(planner.p[0], pub_marker);
 		// DrawGraph(ptree, pub_marker);
 		// DrawTree(planner.p[0], pub_marker);
-		// DrawPath(itcp.ppath, pub_marker, 700, {0, 0, 1.0});
+		// DrawPath(path, pub_marker, 700, {0, 0, 1.0});
 		// DrawPath(itcp.epath, pub_marker, 710, {1.0, 0, 0.0});
 		DrawRobots(planner, pub_marker);
 

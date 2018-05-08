@@ -140,7 +140,7 @@ add_library(pursuit_lib
   src/GamePhysics/Geometry3D.cpp
   src/GamePhysics/matrices.cpp
   src/GamePhysics/vectors.cpp
-  src/GamePhysics/Map.cpp
+  src/Pursuit/Map.cpp
   src/Pursuit/Pursuit.cpp
 )
 
@@ -154,6 +154,7 @@ add_library(pursuit_lib
 ## The recommended prefix ensures that target names across packages don't collide
 add_executable(test src/test.cpp)
 add_executable(pursuit src/pursuit_ros.cpp)
+add_executable(benchmark src/benchmark.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -165,10 +166,15 @@ add_executable(pursuit src/pursuit_ros.cpp)
 ## same as for the library above
 add_dependencies(test ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 add_dependencies(pursuit ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(benchmark ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(test
   ${catkin_LIBRARIES}
+  pursuit_lib
+)
+
+target_link_libraries(benchmark
   pursuit_lib
 )
 

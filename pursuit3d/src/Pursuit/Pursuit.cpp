@@ -2,13 +2,6 @@
 
 SPT::SPT(Map* _map, const Point& _root) {
 	map = _map;
-	CreateKeypoints();
-	CreateVisibilityGraph();
-
-	dist.resize(pt.size());
-	parent.resize(pt.size());
-	sptSet.resize(pt.size());
-
 	Rewire(_root);
 }
 
@@ -98,6 +91,12 @@ void SPT::printPath(int node) {
 
 void SPT::Rewire(const Point& _root) {
 	root = _root;
+	CreateKeypoints();
+	CreateVisibilityGraph();
+
+	dist.resize(pt.size());
+	parent.resize(pt.size());
+	sptSet.resize(pt.size());
 
 	int V = pt.size();
 
@@ -136,6 +135,8 @@ void SPT::Rewire(const Point& _root) {
 
 void SPT::CreateKeypoints() {
 	// create keypoints
+	pt.resize(0);
+
 	for(int k = 0; k < map->objects.size(); k++) {
 		vec3 size = map->objects[k]->size * inflate;
 		Point points[8] = {{size.x, size.y, size.z},
@@ -238,7 +239,6 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, std::ve
 	Point last_point = point;
 	bool valid = true;
 
-	int MAX_ITER = 30;
 	for(int i = 0; i < MAX_ITER; i++) {
 		valid = EvaluatePoint(point, result);
 		if(valid) {
@@ -247,11 +247,9 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, std::ve
 
 			last_point = point;
 
-			// std::cout << result.constraint << "\t" << result.cost << '\t' << point << '\n';
-
 			vec3 direction = result.costd - Project(result.costd, result.constraintd);
-			float mag = 5.0; // 1.0 * (i + MAX_ITER/1.5) * 20.0 / MAX_ITER;
-			point = point - result.constraintd * result.constraint
+			float mag = 5.0 - cgain * i;
+			point = point - result.constraintd * result.constraint * ggain
 						  - direction * mag;
 		}
 		else {
@@ -261,14 +259,9 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, std::ve
 
 			if (collide && 
 				ray_result.t <= Distance(point, last_point)) {
-				// std::cout << '*';
-				point = point - Project(point - last_point, ray_result.normal);  
-				// point = ray.origin + ray.direction * ray_result.t * 0.9;		
+				point = point - Project(point - last_point, ray_result.normal);  	
 			}
 			else  {  // can't recover
-				// std::cout << "Fail: " << last_point << " -> " << point << "\t"
-				// 		  << "t: " << ray_result.t << "\t" << map->PointInMap(last_point) << "\t"
-				// 		  << map->PointInMap(point) << "\t" << Distance(point, last_point) << "\n";
 				return false;
 			}
 		}
@@ -318,13 +311,12 @@ bool Planner::EvaluatePoint(const Point& point, InterceptionResult& intercept) {
 
 std::vector<InterceptionResult> Planner::Step() {
 	// Update trees
-	InterceptionResult result;
-	std::vector<InterceptionResult> sols;
-
-	clock_t begin = clock();
 	vec3 max({50, 50, 50}), min({-50, -50, 0});
-	int NDIV = 10;
+	int NDIV = 5;
+
 	vec3 ds({(max.x - min.x) / NDIV, (max.y - min.y) / NDIV, (max.z - min.z) / NDIV});
+	std::vector<Point> pts;
+	
 	for(int i = 0; i < NDIV; i++)
 		for(int j = 0; j < NDIV; j++)
 			for(int k = 0; k < NDIV; k++) {
@@ -336,31 +328,65 @@ std::vector<InterceptionResult> Planner::Step() {
 				point.y += float(rand() - RAND_MAX/2) * ds.y * 2 / RAND_MAX;
 				point.z += float(rand() - RAND_MAX/2) * ds.z * 2 / RAND_MAX;
 
-				if (SolveInterception(point, result, NULL))
-					if (fabs(result.constraint) < 1.0)
-						sols.push_back(result);
+				if (!map->PointInMap(point))
+					pts.push_back(point);
 			}
+
+	clock_t begin = clock();
+	InterceptionResult result;
+	std::vector<InterceptionResult> sols;
+	for(int i = 0, size = pts.size(); i < size; i++)
+		if (SolveInterception(pts[i], result, NULL))
+			if (fabs(result.constraint) < 1.0)
+				sols.push_back(result);
 	clock_t end = clock();
 
 
 	// Sample valid point on each grid
-
 	float vmin = sols[0].cost,
-		  vmax = sols[0].cost;
-	for (int i = 1; i < sols.size(); i+=1) {
+		  vmax = sols[0].cost,
+		  vmean = 0.0;
+	for (int i = 0; i < sols.size(); i+=1) {
 		vmin = sols[i].cost < vmin ? sols[i].cost : vmin;
-		vmax = sols[i].cost > vmin ? sols[i].cost : vmin;
+		vmax = sols[i].cost > vmax ? sols[i].cost : vmax;
+		vmean += sols[i].cost / sols.size();
 	}
+	int opt_count = 0;
+	float thresh = 24.5242 * 1.1;
+	for (int i = 0; i < sols.size(); i+=1) {
+		if (sols[i].cost < thresh) {
+			opt_count++;
+		}
+	}
+	float opt = 100.0 * opt_count / pts.size();
 
-	std::cout << "# of sols: " << sols.size() << "\t"
-			  << "Ratio: " << 100.0 * sols.size() / (NDIV*NDIV*NDIV) << "\t"
-			  << "Time: " << 1e3 * (double(end - begin) / CLOCKS_PER_SEC) / (NDIV*NDIV*NDIV) << " ms/sol"
-			  << "Min cost: " << vmin << "\t" << "Max cost: " << vmax << "\n" ;
 
-
+	std::cout << edge_resolution << "\t" << cgain << "\t" << ggain << "\t"
+			  << sols.size() << "\t" << 100.0 * sols.size() / pts.size() << "\t"
+			  << 1e3 * (double(end - begin) / CLOCKS_PER_SEC) / pts.size() << "\t\t"
+			  << vmin << "\t" << vmax << "\t" << vmean << "\t" << opt << "\t" << p[0].link_count << "\n";
 
 	// Solve for each initial guess
 
 	// Assign solutions to tracks and compute variance
 	return(sols);
+}
+
+void Planner::Reconfigure(float _edge_resolution, float _cgain, float _ggain) {
+	
+	edge_resolution = _edge_resolution;
+	ggain = _ggain;
+	cgain = _cgain;
+	for(int i = 0; i < p.size(); i++) {
+		p[i].edge_resolution = edge_resolution;
+		p[i].Rewire(p[i].root);
+	}
+	for(int i = 0; i < e.size(); i++) {
+		e[i].edge_resolution = edge_resolution;
+		e[i].Rewire(e[i].root);
+	}
+	for(int i = 0; i < g.size(); i++) {
+		g[i].edge_resolution = edge_resolution;
+		g[i].Rewire(g[i].root);
+	}
 }
