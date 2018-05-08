@@ -8,9 +8,8 @@ Panels:
         - /Status1
         - /Marker1
         - /Marker1/Namespaces1
-        - /RobotModel1/Status1
         - /Axes1
-        - /PointCloud22
+        - /PointCloud21
       Splitter Ratio: 0.598253
     Tree Height: 775
   - Class: rviz/Selection
@@ -58,6 +57,8 @@ Visualization Manager:
       Marker Topic: /marker_map
       Name: Marker
       Namespaces:
+        bad: true
+        good: true
         keypoints: true
         obstacles: true
         robots: true
@@ -153,7 +154,7 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: RGB8
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
@@ -170,7 +171,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 255; 255; 255
@@ -195,22 +196,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 158.31
+      Distance: 228.64
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -8.06868
-        Y: 12.5567
-        Z: -0.222717
+        X: -50.409
+        Y: 9.01286
+        Z: 2.75231
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.609797
+      Pitch: 0.644796
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.749996
+      Yaw: 6.05003
     Saved: ~
 Window Geometry:
   Displays:
@@ -228,5 +229,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1855
-  X: 65
-  Y: 24
+  X: 55
+  Y: -14

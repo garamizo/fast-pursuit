@@ -38,6 +38,30 @@ void BuildProblem(Map& map, Planner& planner) {
 }
 
 
+	// float vmin = sols[0].cost,
+	// 	  vmax = sols[0].cost,
+	// 	  vmean = 0.0;
+	// for (int i = 0; i < sols.size(); i+=1) {
+	// 	vmin = sols[i].cost < vmin ? sols[i].cost : vmin;
+	// 	vmax = sols[i].cost > vmax ? sols[i].cost : vmax;
+	// 	vmean += sols[i].cost / sols.size();
+	// }
+	// int opt_count = 0;
+	// float thresh = 24.5242 * 1.1;
+	// for (int i = 0; i < sols.size(); i+=1) {
+	// 	if (sols[i].cost < thresh) {
+	// 		opt_count++;
+	// 	}
+	// }
+	// float opt = 100.0 * opt_count / count;
+
+
+	// std::cout << edge_resolution << "\t" << cgain << "\t" << ggain << "\t"
+	// 		  << sols.size() << "\t" << 100.0 * sols.size() / count << "\t"
+	// 		  << 1e3 * (double(end - begin) / CLOCKS_PER_SEC) / pts.size() << "\t\t"
+	// 		  << vmin << "\t" << vmax << "\t" << vmean << "\t" << opt << "\t" << p[0].link_count << "\n";
+
+
 int main(int argc, char **argv) {
 	
 	Map map;

@@ -230,21 +230,18 @@ bool Planner::AddGoal(const Point& point) {
 	return false;
 }
 
-bool Planner::SolveInterception(Point point, InterceptionResult& result, std::vector<Point>* sol) {
+bool Planner::SolveInterception(Point point, InterceptionResult& result, SolverResult* sresult) {
 
-	if (sol != NULL) {
-		sol->resize(0);
-		sol->push_back(point);
-	}
 	Point last_point = point;
-	bool valid = true;
+	int exit_flag = 1, i;
 
-	for(int i = 0; i < MAX_ITER; i++) {
-		valid = EvaluatePoint(point, result);
+	for(i = 0; i < MAX_ITER; i++) {
+
+		bool valid = EvaluatePoint(point, result);
+		if (sresult != NULL)
+			sresult->interception.push_back(result);
+
 		if(valid) {
-			if (i > 0 && Magnitude(point - last_point) < DIST_MIN)
-				return true;
-
 			last_point = point;
 
 			vec3 direction = result.costd - Project(result.costd, result.constraintd);
@@ -252,32 +249,35 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, std::ve
 			point = point - result.constraintd * result.constraint * ggain
 						  - direction * mag;
 		}
-		else {
+		else {  // if point is bad
 			Ray ray(last_point, point - last_point);
 			RaycastResult ray_result;
-			bool collide = map->Raycast(ray, ray_result);
+			bool collide = map->Raycast(ray, &ray_result);
 
-			if (collide && 
-				ray_result.t <= Distance(point, last_point)) {
+			if (collide && ray_result.t <= Distance(point, last_point))
 				point = point - Project(point - last_point, ray_result.normal);  	
-			}
-			else  {  // can't recover
-				return false;
+			else { // can't recover
+				exit_flag = -1; break;
 			}
 		}
 
-		if (sol != NULL)
-			sol->push_back(point);
+		if (Magnitude(point - last_point) < DIST_MIN) {
+			exit_flag = 2; break;
+		}
 	}
-	return valid;
+	if (sresult != NULL) {
+		sresult->iterations = i;
+		sresult->exit_flag = exit_flag;
+	}
+
+	return (exit_flag > 0);
 }
 
 bool Planner::EvaluatePoint(const Point& point, InterceptionResult& intercept) {
 
-	float mintime = 1e6;
+	float mintime = FLT_MAX;
 	PathResult path;
-	bool valid = false;
-	int idx;
+	int idx = -1;
 
 	for(int i = 0; i < p.size(); i++) {
 		bool reached = p[i].findPath(point, path);
@@ -286,10 +286,9 @@ bool Planner::EvaluatePoint(const Point& point, InterceptionResult& intercept) {
 			intercept.p = &p[i];
 			intercept.ppath = path;
 			idx = i;
-			valid = true;
 		}
 	}
-	if(!valid)
+	if(idx < 0)
 		return false;
 
 	if (!e[0].findPath(point, intercept.epath))  // error detection
@@ -315,58 +314,27 @@ std::vector<InterceptionResult> Planner::Step() {
 	int NDIV = 5;
 
 	vec3 ds({(max.x - min.x) / NDIV, (max.y - min.y) / NDIV, (max.z - min.z) / NDIV});
-	std::vector<Point> pts;
+	std::vector<InterceptionResult> sols;
+	int count = 0;
 	
 	for(int i = 0; i < NDIV; i++)
 		for(int j = 0; j < NDIV; j++)
 			for(int k = 0; k < NDIV; k++) {
 
-				Point point({min.x + i * (max.x - min.x) / NDIV,
-								  min.y + j * (max.y - min.y) / NDIV,
-								  min.z + k * (max.z - min.z) / NDIV});
+				Point point({min.x + i * ds.x / NDIV,
+						     min.y + j * ds.y / NDIV,
+						     min.z + k * ds.z / NDIV});
 				point.x += float(rand() - RAND_MAX/2) * ds.x * 2 / RAND_MAX;
 				point.y += float(rand() - RAND_MAX/2) * ds.y * 2 / RAND_MAX;
 				point.z += float(rand() - RAND_MAX/2) * ds.z * 2 / RAND_MAX;
 
-				if (!map->PointInMap(point))
-					pts.push_back(point);
+				if (!map->PointInMap(point)) {
+					count++;
+					InterceptionResult itcp;
+					if (SolveInterception(point, itcp, NULL))
+						sols.push_back(itcp);
+				}
 			}
-
-	clock_t begin = clock();
-	InterceptionResult result;
-	std::vector<InterceptionResult> sols;
-	for(int i = 0, size = pts.size(); i < size; i++)
-		if (SolveInterception(pts[i], result, NULL))
-			if (fabs(result.constraint) < 1.0)
-				sols.push_back(result);
-	clock_t end = clock();
-
-
-	// Sample valid point on each grid
-	float vmin = sols[0].cost,
-		  vmax = sols[0].cost,
-		  vmean = 0.0;
-	for (int i = 0; i < sols.size(); i+=1) {
-		vmin = sols[i].cost < vmin ? sols[i].cost : vmin;
-		vmax = sols[i].cost > vmax ? sols[i].cost : vmax;
-		vmean += sols[i].cost / sols.size();
-	}
-	int opt_count = 0;
-	float thresh = 24.5242 * 1.1;
-	for (int i = 0; i < sols.size(); i+=1) {
-		if (sols[i].cost < thresh) {
-			opt_count++;
-		}
-	}
-	float opt = 100.0 * opt_count / pts.size();
-
-
-	std::cout << edge_resolution << "\t" << cgain << "\t" << ggain << "\t"
-			  << sols.size() << "\t" << 100.0 * sols.size() / pts.size() << "\t"
-			  << 1e3 * (double(end - begin) / CLOCKS_PER_SEC) / pts.size() << "\t\t"
-			  << vmin << "\t" << vmax << "\t" << vmean << "\t" << opt << "\t" << p[0].link_count << "\n";
-
-	// Solve for each initial guess
 
 	// Assign solutions to tracks and compute variance
 	return(sols);

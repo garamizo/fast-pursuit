@@ -384,67 +384,64 @@ void DrawConvergence(const std::vector<Point>& pts, ros::Publisher pub, int id) 
 	// ROS_INFO("Done with convergence");
 }
 
-void radarCallback(const gazebo_msgs::ModelStates) {
-
-	// update agents' pos
-	float p1[3] = {1, 2, 3};
-	float p2[3] = {1, 2, 3};
-
-	// calculate interception point
-
-	// command agents
+bool getHeatMapColor(float value, float *red, float *green, float *blue)
+{
+  const int NUM_COLORS = 4;
+  static float color[NUM_COLORS][3] = { {0,0,1}, {0,1,0}, {1,1,0}, {1,0,0} };
+    // A static array of 4 colors:  (blue,   green,  yellow,  red) using {r,g,b} for each.
+ 
+  int idx1;        // |-- Our desired color will be between these two indexes in "color".
+  int idx2;        // |
+  float fractBetween = 0;  // Fraction between "idx1" and "idx2" where our value is.
+ 
+  if(value <= 0)      {  idx1 = idx2 = 0;            }    // accounts for an input <=0
+  else if(value >= 1)  {  idx1 = idx2 = NUM_COLORS-1; }    // accounts for an input >=0
+  else
+  {
+    value = value * (NUM_COLORS-1);        // Will multiply value by 3.
+    idx1  = floor(value);                  // Our desired color will be after this index.
+    idx2  = idx1+1;                        // ... and before this index (inclusive).
+    fractBetween = value - float(idx1);    // Distance between the two indexes (0-1).
+  }
+ 
+  *red   = (color[idx2][0] - color[idx1][0])*fractBetween + color[idx1][0];
+  *green = (color[idx2][1] - color[idx1][1])*fractBetween + color[idx1][1];
+  *blue  = (color[idx2][2] - color[idx1][2])*fractBetween + color[idx1][2];
 }
 
-void BuildProblem(Map& map, Planner& planner) {
-	// build campus map
-	float th = -10 * M_PI / 180.0;
-	mat3 rot = Transpose(mat3({std::cos(th), -std::sin(th), 0, 
-			  std::sin(th), std::cos(th), 0, 
-			  0, 0, 1}));
-	
-	OBB *chem = new OBB({-5, 20, 15}, {4, 10, 15}, rot);
-	OBB *mub = new OBB({-30, -15, 2.5}, {10, 10, 2.5}, rot);
-	OBB *meem = new OBB({-30, 15, 20}, {5, 5, 20}, rot);
-
-	map.AddOBB(meem);
-	map.AddOBB(chem);
-	map.AddOBB(mub);
-	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
-
-	planner.map = &map;
-	planner.AddPursuer({-40, 0, 10}, 1.0f);
-	planner.AddPursuer({15, 40, 2}, 1.0f);
-	planner.AddPursuer({20, 25, 30}, 1.5f);
-	planner.AddEvader({-30, 30, 30}, 1.2f);
-	planner.AddGoal({10, 20, 1});
-}
 
 void BuildPointCloud(Planner& planner, ros::Publisher pub) {
 	pcl::PointCloud<pcl::PointXYZRGBA> cloud;
-	pcl::PointXYZRGBA point;
-	InterceptionResult itcp;
-	Point min(-50, -10, 0), max(20, 50, 40);
-	int NDIV = 50;
+	
+	Point min(-50.0, -10.0, 0.0), max(20.0, 50.0, 60.0);
+	int NDIV = 70;
+	vec3 ds({(max.x - min.x) / NDIV, (max.y - min.y) / NDIV, (max.z - min.z) / NDIV});
 
 	for(int i = 0; i < NDIV; i++)
 		for(int j = 0; j < NDIV; j++)
 			for(int k = 0; k < NDIV; k++) {
+				pcl::PointXYZRGBA point;
 		
-				Point eval_point({min.x + i * (max.x - min.x) / NDIV,
-								  min.y + j * (max.y - min.y) / NDIV,
-								  min.z + k * (max.z - min.z) / NDIV});
+				Point eval_point({min.x + i * ds.x,
+						     min.y + j * ds.y,
+						     min.z + k * ds.z});
 
-				if (planner.EvaluatePoint(eval_point, itcp) && fabs(itcp.constraint) < 1.0 && itcp.cost < 70.0) {
+				InterceptionResult itcp;
+				bool valid = planner.EvaluatePoint(eval_point, itcp);
+
+				if (valid && fabs(itcp.constraint) < 1.0 && itcp.cost < 70.0) {
 					point.x = eval_point.x;
 					point.y = eval_point.y;
 					point.z = eval_point.z;
 
-					float cmin = 24.54;
-					float cmap = boost::algorithm::clamp(2.0 * (itcp.cost - cmin) * 255.0 / (40.0 - cmin), 0.0, 255.0);
+					float cmin = 24.54, cmax = 50;
+					float cmap = boost::algorithm::clamp(1-(itcp.cost - cmin)/cmax, 0.0, 1.0);
+					vec3 color;
+					getHeatMapColor(cmap, &color.x, &color.y, &color.z);
 
-					point.r = boost::algorithm::clamp(255, 0, 255);
-					point.g = boost::algorithm::clamp(cmap * 0.7 + 77, 0, 255);
-					point.b = boost::algorithm::clamp(cmap, 0, 255);
+					point.r = 255 * color.x;
+					point.g = 255 * color.y;
+					point.b = 255 * color.z;
 					point.a = 255;
 
 					cloud.push_back(point);
@@ -461,7 +458,7 @@ void BuildPointCloud(Planner& planner, ros::Publisher pub) {
 	ROS_INFO("Done with cloud!");
 }
 
-void DrawPoints(std::vector<Point> pts, std::string ns, ros::Publisher pub) {
+void DrawPoints(std::vector<Point> pts, std::string ns, vec3 color, ros::Publisher pub) {
 	visualization_msgs::Marker marker;
 
 	// plot keypoints
@@ -472,9 +469,9 @@ void DrawPoints(std::vector<Point> pts, std::string ns, ros::Publisher pub) {
 	marker.type = visualization_msgs::Marker::SPHERE;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
-	marker.color.r = 0.0;
-	marker.color.g = 0.0;
-	marker.color.b = 0.0;
+	marker.color.r = color.x;
+	marker.color.g = color.y;
+	marker.color.b = color.z;
 	marker.scale.x = 2;
 	marker.scale.y = 2;
 	marker.scale.z = 2;
@@ -518,6 +515,31 @@ void BuildInterceptCloud(std::vector<InterceptionResult> sols, ros::Publisher pu
 }
 
 
+void BuildProblem(Map& map, Planner& planner) {
+	// build campus map
+	float th = -10 * M_PI / 180.0;
+	mat3 rot = Transpose(mat3({std::cos(th), -std::sin(th), 0, 
+			  std::sin(th), std::cos(th), 0, 
+			  0, 0, 1}));
+	
+	OBB *chem = new OBB({-5, 20, 15}, {4, 10, 15}, rot);
+	OBB *mub = new OBB({-30, -15, 2.5}, {10, 10, 2.5}, rot);
+	OBB *meem = new OBB({-30, 15, 20}, {5, 5, 20}, rot);
+
+	map.AddOBB(meem);
+	map.AddOBB(chem);
+	map.AddOBB(mub);
+	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
+
+	planner.map = &map;
+	planner.AddPursuer({-40, 0, 10}, 1.0f);
+	planner.AddPursuer({15, 40, 2}, 1.0f);
+	planner.AddPursuer({20, 25, 30}, 1.5f);
+	planner.AddEvader({-30, 30, 30}, 1.2f);
+	planner.AddGoal({10, 20, 1});
+}
+
+
 int main(int argc, char **argv) {
 	std::srand(std::time(0));
 
@@ -529,65 +551,41 @@ int main(int argc, char **argv) {
 	ros::init(argc, argv, "pursuit");
 	ros::NodeHandle n;
 
-	ros::Subscriber sub = n.subscribe("/gazebo/model_states", 100, radarCallback);
-	ros::Publisher pub = n.advertise<std_msgs::String>("chatter", 1000);
-	ros::Publisher pub_marker = n.advertise<visualization_msgs::Marker>("marker_map", 1000);
-	ros::Publisher pub_cloud = n.advertise<sensor_msgs::PointCloud2>("cloud", 1000);
-	ros::Publisher pub_cloud2 = n.advertise<sensor_msgs::PointCloud2>("cloud_intercept", 1000);
+	ros::Publisher pub_marker = n.advertise<visualization_msgs::Marker>("marker_map", 10000);
+	ros::Publisher pub_cloud = n.advertise<sensor_msgs::PointCloud2>("cloud", 10000);
+	// ros::Publisher pub_cloud2 = n.advertise<sensor_msgs::PointCloud2>("cloud_intercept", 1000);
 
-	// std::vector<InterceptionResult> sols = planner.Step();
-	// BuildInterceptCloud(sols, pub_cloud2);
-	// BuildPointCloud(planner, pub_cloud);
-
-/*
-	ros::Rate loop_rate(5);
-	std::vector<Point> pt_converge(Point(), 100);
-	std::vector<Point> pt_diverge(Point(), 100);
-
-	int count = 0, converge_count = 0, diverge_count = 0;
-	while(ros::ok()) {
-		InterceptionResult itcp;
-		Point point;
-		std::vector<Point> sol;
-		
-		point.x = float(rand() % 100) - 50.0;
-		point.y =  float(rand() % 100) - 50.0;
-		point.z = float(rand() % 50) - 0.0;
-		std::cout << "*" << "\n";
-		if(planner.SolveInterception(point, itcp, &sol)) {
-			// std::cout << itcp.cost << "\n";
-			DrawConvergence(sol, pub_marker, (count+=40) % 3000);
-
-			DrawObstacles(map, pub_marker);
-			DrawKeypoints(planner.p[0], pub_marker);
-			// DrawKeypointLabels(planner.p[0], pub_marker);
-			// DrawGraph(ptree, pub_marker);
-			// DrawTree(planner.p[0], pub_marker);
-			DrawPath(itcp.ppath, pub_marker, 700, {0, 0, 1.0});
-			DrawPath(itcp.epath, pub_marker, 710, {1.0, 0, 0.0});
-			DrawRobots(planner, pub_marker);
-			pt_converge[converge_count++ % 100].push_back(point);
-			DrawPoints(pt_converge, "pt_converge", pub_marker);
+	// Test multiple points
+	std::vector<InterceptionResult> sols = planner.Step();
+	std::vector<Point> goodpts, badpts;
+	for (int i = 0; i < sols.size(); i++)
+	{
+		if (fabs(sols[i].constraint) < 0.5) {
+			goodpts.push_back(sols[i].point);
 		}
 		else {
-			pt_diverge[diverge_count++ % 100].push_back(point);
-			DrawPoints(pt_diverge, "pt_diverge", pub_marker);
+			badpts.push_back(sols[i].point);
 		}
-
-		// DrawObstacles(map, pub_marker);
-		// DrawKeypoints(planner.p[0], pub_marker);
-		// DrawKeypointLabels(planner.p[0], pub_marker);
-		// DrawGraph(ptree, pub_marker);
-		// DrawTree(planner.p[0], pub_marker);
-		// DrawPath(path, pub_marker, 700, {0, 0, 1.0});
-		// DrawPath(itcp.epath, pub_marker, 710, {1.0, 0, 0.0});
-		// DrawRobots(planner, pub_marker);
-
-		ros::spinOnce();
-		loop_rate.sleep();
 	}
-	*/
+	ROS_INFO("%lu good and %lu bad solutions found", goodpts.size(), badpts.size());
 
+	DrawObstacles(map, pub_marker);
+	ros::Duration(0.5).sleep();
+
+	DrawKeypoints(planner.p[0], pub_marker);
+	ros::Duration(0.5).sleep();
+
+	DrawRobots(planner, pub_marker);
+	ros::Duration(0.5).sleep();
+
+	DrawPoints(goodpts, "good", {1, 0.7, 0.1}, pub_marker);
+	ros::Duration(0.5).sleep();
+
+	DrawPoints(badpts, "bad", {0, 0, 0}, pub_marker);
+	ros::Duration(0.5).sleep();
+
+	BuildPointCloud(planner, pub_cloud);
+
+	ros::spin();
 	return 0;
-	
 }

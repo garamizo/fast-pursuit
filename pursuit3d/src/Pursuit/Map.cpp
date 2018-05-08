@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <list>
 #include <iostream>
+#include <float.h>
 
 void Map::AddOBB(OBB* obb) {
 	if (std::find(objects.begin(), objects.end(), obb) != objects.end()) {
@@ -78,30 +79,24 @@ std::vector<OBB*> Map::Query(const AABB& aabb) {
 	return result;
 }
 
-bool Map::Raycast(const Ray& ray, RaycastResult& outResult) {
+bool Map::Raycast(const Ray& ray, RaycastResult* outResult) {
 
-	RaycastResult result;
-	bool hit_obstacle = false;
-	outResult.t = 1e6;
-
-	if (::Raycast(Plane({0, 0, 1}, 0), ray, &result)) { // test ground
-		outResult = result;
-		hit_obstacle = true;
-	}
-	// std::cout << "outResult t: " << outResult.t << "\n";
+	RaycastResult result, minresult;
+	minresult.t = FLT_MAX;
 
 	for(int i = 0; i < objects.size(); i++) {
-		bool flag = ::Raycast(*objects[i], ray, &result);
-		if(flag && result.t < outResult.t) {
-			hit_obstacle = true;
-			outResult = result;
-		}
-		// std::cout << "Rays: " << result.t << "\t" 
-		// 		  << "Flag: " << flag << "\t" 
-		// 		  << "outResult.t : " << outResult.t << "\n"; 
+		bool collide = ::Raycast(*objects[i], ray, &result);
+		if(collide && result.t < minresult.t)
+			minresult = result;
 	}
+	if (::Raycast(Plane({0, 0, 1}, 0), ray, &result)) // test ground
+		if(result.t < minresult.t)
+			minresult = result;
 
-	return(hit_obstacle);
+	if (outResult)
+		*outResult = minresult;
+
+	return(minresult.t < FLT_MAX);
 }
 
 

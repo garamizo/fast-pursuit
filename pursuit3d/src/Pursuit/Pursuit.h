@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <vector>
 #include <iostream>
+#include <float.h>
 
 
 struct PathResult {
@@ -52,6 +53,13 @@ typedef struct InterceptionResult {
 	PathResult ppath, epath, gpath;
 } InterceptionResult;
 
+typedef struct SolverResult {
+	std::vector<InterceptionResult> interception;
+
+	int exit_flag;
+	int iterations;
+} SolverResult;
+
 class Planner {
 
 public:
@@ -59,13 +67,13 @@ public:
 	std::vector<SPT> p, e, g;
 	std::vector<float> pvel, evel, gvel;
 	const float DIST_MIN = 1;
-	const int MAX_ITER = 30;
+	const int MAX_ITER = 50;
 	float edge_resolution = 1.0;
 	float cgain = 0.2, ggain = 0.5;
 
 	Planner(Map* _map);
 	Planner() {};
-	bool SolveInterception(Point point, InterceptionResult& result, std::vector<Point>* sol);
+	bool SolveInterception(Point point, InterceptionResult& iresult, SolverResult* sresult);
 	bool AddPursuer(const Point& point, float vel);
 	bool AddEvader(const Point& point, float vel);
 	bool AddGoal(const Point& point);
