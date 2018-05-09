@@ -15,12 +15,24 @@ class Listener
     Planner planner;
 
     Listener();
-    void callback(const nav_msgs::Odometry::ConstPtr& msg);
+    void callback1(const nav_msgs::Odometry::ConstPtr& msg);
+    void callback2(const nav_msgs::Odometry::ConstPtr& msg);
 };
 
-void Listener::callback(const nav_msgs::Odometry::ConstPtr& msg)
+void Listener::callback1(const nav_msgs::Odometry::ConstPtr& msg)
 {
-    // update trees
+    planner.e[0].root.x = msg->pose.pose.position.x;
+    planner.e[0].root.y = msg->pose.pose.position.y;
+    planner.e[0].root.z = msg->pose.pose.position.z;
+
+    ROS_INFO_THROTTLE(1, "(%.2f, %.2f, %.2f)\n", planner.e[0].root.x, planner.e[0].root.y, planner.e[0].root.z);
+}
+
+void Listener::callback2(const nav_msgs::Odometry::ConstPtr& msg)
+{
+    planner.p[0].root.x = msg->pose.pose.position.x;
+    planner.p[0].root.y = msg->pose.pose.position.y;
+    planner.p[0].root.z = msg->pose.pose.position.z;
 }
 
 Listener::Listener() {
@@ -42,9 +54,9 @@ Listener::Listener() {
 	planner.map = &map;
 	planner.AddPursuer({20, 0, 50}, 1.0f);
 	// planner.AddPursuer({15, 40, 50}, 2.0f);
-	planner.AddPursuer({50, 50, 10}, 1.0f);
+	// planner.AddPursuer({50, 50, 10}, 1.0f);
 	planner.AddEvader({-50, 30, 30}, 1.4f);
-	planner.AddGoal({10, 30, 20});
+	planner.AddGoal({0, 0, 0});
 }
 
 
@@ -56,9 +68,9 @@ int main(int argc, char **argv) {
 
 	Listener listener;
 
-	ros::Subscriber sub = nh.subscribe<nav_msgs::Odometry>("odom", 1, &Listener::callback, &listener);
+	ros::Subscriber sub1 = nh.subscribe<nav_msgs::Odometry>("/ardrone_1/ground_truth/state", 1, &Listener::callback1, &listener);
+	ros::Subscriber sub2 = nh.subscribe<nav_msgs::Odometry>("/ardrone_2/ground_truth/state", 1, &Listener::callback2, &listener);
 
-	// ros::Subscriber sub = n.subscribe("/gazebo/model_states", 100, radarCallback);
 	ros::Publisher pub = nh.advertise<pursuit3d::Interception>("interception", 10000);
 	
 	// Generate points
