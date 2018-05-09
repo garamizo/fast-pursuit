@@ -24,75 +24,68 @@ void BuildProblem(Map& map, Planner& planner) {
 	OBB *mub = new OBB({-30, -15, 2.5}, {10, 10, 2.5}, rot);
 	OBB *meem = new OBB({-30, 15, 20}, {5, 5, 20}, rot);
 
-	map.AddOBB(meem);
-	map.AddOBB(chem);
-	map.AddOBB(mub);
+	// map.AddOBB(meem);
+	// map.AddOBB(chem);
+	// map.AddOBB(mub);
 	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
 
 	planner.map = &map;
-	planner.AddPursuer({-40, 0, 10}, 1.0f);
-	planner.AddPursuer({15, 40, 2}, 1.0f);
-	planner.AddPursuer({20, 25, 30}, 1.5f);
-	planner.AddEvader({-30, 30, 30}, 1.2f);
-	planner.AddGoal({10, 20, 1});
+	// planner.AddPursuer({-40, 0, 50}, 1.0f);
+	// planner.AddPursuer({15, 40, 50}, 2.0f);
+	planner.AddPursuer({20, 25, 30}, 1.0f);
+	planner.AddEvader({-50, 30, 30}, 1.6f);
+	planner.AddGoal({10, 30, 20});
 }
 
 
-	// float vmin = sols[0].cost,
-	// 	  vmax = sols[0].cost,
-	// 	  vmean = 0.0;
-	// for (int i = 0; i < sols.size(); i+=1) {
-	// 	vmin = sols[i].cost < vmin ? sols[i].cost : vmin;
-	// 	vmax = sols[i].cost > vmax ? sols[i].cost : vmax;
-	// 	vmean += sols[i].cost / sols.size();
-	// }
-	// int opt_count = 0;
-	// float thresh = 24.5242 * 1.1;
-	// for (int i = 0; i < sols.size(); i+=1) {
-	// 	if (sols[i].cost < thresh) {
-	// 		opt_count++;
-	// 	}
-	// }
-	// float opt = 100.0 * opt_count / count;
-
-
-	// std::cout << edge_resolution << "\t" << cgain << "\t" << ggain << "\t"
-	// 		  << sols.size() << "\t" << 100.0 * sols.size() / count << "\t"
-	// 		  << 1e3 * (double(end - begin) / CLOCKS_PER_SEC) / pts.size() << "\t\t"
-	// 		  << vmin << "\t" << vmax << "\t" << vmean << "\t" << opt << "\t" << p[0].link_count << "\n";
-
-
 int main(int argc, char **argv) {
+	std::srand(std::time(0));
 	
 	Map map;
 	Planner planner;
 	BuildProblem(map, planner);
 
-	std::vector<InterceptionResult> sols;
+	// Generate points
+	vec3 max({70, 70, 50}), min({-70, -30, 1});
+	int NDIV = 3;
+
+	std::vector<Point> pts;
+	std::vector<float> iterations, costs, constraints;
+	vec3 ds({(max.x - min.x) / NDIV, (max.y - min.y) / NDIV, (max.z - min.z) / NDIV});
+	
+	int trypts = 0;
+	for(int i = 0; i < NDIV; i++)
+		for(int j = 0; j < NDIV; j++)
+			for(int k = 0; k < NDIV; k++) {
+
+				Point point({min.x + i * ds.x,
+						     min.y + j * ds.y,
+						     min.z + k * ds.z});
+
+				if (!planner.map->PointInMap(point)) {
+					trypts++;
+					InterceptionResult itcp;
+					SolverResult sresult;
+
+					if (planner.SolveInterception(point, itcp, &sresult)) {
+						pts.push_back(itcp.point);
+						iterations.push_back(sresult.iterations);
+						costs.push_back(itcp.cost);
+						constraints.push_back(itcp.constraint);
+					}
+				}
+			}
+
 	FILE * pFile;
 	char text[200];
-	
-	float cgain[] = {0.05, 0.1, 0.2, 0.3, 0.4};
-	float ggain[] = {0.1, 0.3, 0.5, 1.0, 1.5};
-	float edge_res[] = {3.0, 2.5, 2.0, 1.5, 1.0, 0.5, 0.3};
-	for(int i = 0; i < 7; i++) {
-		std::cout << "\nds\tcgain\tggain\t# sols\tRatio\tTime\t\tMin\tMax\tMean\tOpt <\t# Links\n";
-		sprintf(text, "results%d.csv", i);
-		pFile = fopen (text, "w");
+	pFile = fopen ("result.csv", "w");
 
-		// planner.Reconfigure(2.0, 0.2, ggain[i]);
-		// planner.Reconfigure(2.0, cgain[i], 0.5);
-		planner.Reconfigure(edge_res[i], 0.2, 0.5);
+	// write to file
+	for (int k = 0; k < costs.size(); k++)
+		fprintf(pFile, "%.10f,%.10f,%.10f,%.10f,%.10f,%.10f\n", pts[k].x,
+			pts[k].y, pts[k].z, iterations[k], costs[k], constraints[k]);
 
-		for(int j = 0; j < 10; j++) {
-			sols = planner.Step();
-
-			for (int k = 0, size = sols.size(); k < size; k++)
-				fprintf(pFile, "%.10f\t%.10f\t%.10f\t%.10f\t%.10f\n", sols[k].point.x,
-					sols[k].point.y, sols[k].point.z, sols[k].cost, sols[k].constraint);
-		}
-		fclose(pFile);
-	}
+	fclose(pFile);
 
 	return 0;
 }

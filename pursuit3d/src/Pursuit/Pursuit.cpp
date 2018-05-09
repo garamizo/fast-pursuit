@@ -17,7 +17,7 @@ bool SPT::findPath(const Point& dest, PathResult& result) {
 		parent_min = num_nodes;
 
 	} else  {// loop through each node and find least path updated cost
-		Line line(pt[0], dest);
+		Line line({0, 0, 0}, dest);
 		for(int i = 0; i < num_nodes; i++) {
 			line.start = pt[i];
 			float newdist = dist[i] + Length(line);
@@ -28,7 +28,8 @@ bool SPT::findPath(const Point& dest, PathResult& result) {
 		}
 	}
 
-	if (parent_min > 0) {
+	if (parent_min >= 0) {
+		
 		result.dist = dist_min;
 		result.waypts.resize(0);
 		result.waypts.push_back(dest);
@@ -234,6 +235,7 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, SolverR
 
 	Point last_point = point;
 	int exit_flag = 1, i;
+	vec3 update;
 
 	for(i = 0; i < MAX_ITER; i++) {
 
@@ -245,17 +247,21 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, SolverR
 			last_point = point;
 
 			vec3 direction = result.costd - Project(result.costd, result.constraintd);
-			float mag = 5.0 - cgain * i;
-			point = point - result.constraintd * result.constraint * ggain
-						  - direction * mag;
+			vec3 velocity = update * momentum;
+			update = result.constraintd * result.constraint * ggain
+					 + direction * cgain;
+			point = point - update + velocity;
 		}
 		else {  // if point is bad
 			Ray ray(last_point, point - last_point);
 			RaycastResult ray_result;
 			bool collide = map->Raycast(ray, &ray_result);
 
-			if (collide && ray_result.t <= Distance(point, last_point))
-				point = point - Project(point - last_point, ray_result.normal);  	
+			if (collide && ray_result.t <= Distance(point, last_point)) {
+				Point slide_point = point - ray_result.point - 
+									Project(point - ray_result.point, ray_result.normal) * 1.01;
+				point = ray_result.point + slide_point; 	
+			}
 			else { // can't recover
 				exit_flag = -1; break;
 			}
@@ -310,7 +316,7 @@ bool Planner::EvaluatePoint(const Point& point, InterceptionResult& intercept) {
 
 std::vector<InterceptionResult> Planner::Step() {
 	// Update trees
-	vec3 max({50, 50, 50}), min({-50, -50, 0});
+	vec3 max({50, 50, 50}), min({-50, -50, 1});
 	int NDIV = 5;
 
 	vec3 ds({(max.x - min.x) / NDIV, (max.y - min.y) / NDIV, (max.z - min.z) / NDIV});
@@ -321,14 +327,19 @@ std::vector<InterceptionResult> Planner::Step() {
 		for(int j = 0; j < NDIV; j++)
 			for(int k = 0; k < NDIV; k++) {
 
-				Point point({min.x + i * ds.x / NDIV,
-						     min.y + j * ds.y / NDIV,
-						     min.z + k * ds.z / NDIV});
-				point.x += float(rand() - RAND_MAX/2) * ds.x * 2 / RAND_MAX;
-				point.y += float(rand() - RAND_MAX/2) * ds.y * 2 / RAND_MAX;
-				point.z += float(rand() - RAND_MAX/2) * ds.z * 2 / RAND_MAX;
+
+
+				Point point({min.x + i * ds.x,
+						     min.y + j * ds.y,
+						     min.z + k * ds.z});
+				// point.x += float(rand() - RAND_MAX/2) * ds.x * 2 / RAND_MAX;
+				// point.y += float(rand() - RAND_MAX/2) * ds.y * 2 / RAND_MAX;
+				// point.z += float(rand() - RAND_MAX/2) * ds.z * 2 / RAND_MAX;
+
+				// std::cout << point << "heloooo!\n";
 
 				if (!map->PointInMap(point)) {
+					// std::cout << "heloooo!\n";
 					count++;
 					InterceptionResult itcp;
 					if (SolveInterception(point, itcp, NULL))
@@ -336,15 +347,18 @@ std::vector<InterceptionResult> Planner::Step() {
 				}
 			}
 
+	std::cout << "heloooo2222!\n";
+
 	// Assign solutions to tracks and compute variance
 	return(sols);
 }
 
-void Planner::Reconfigure(float _edge_resolution, float _cgain, float _ggain) {
+void Planner::Reconfigure(float _edge_resolution, float _cgain, float _ggain, float _momentum) {
 	
 	edge_resolution = _edge_resolution;
 	ggain = _ggain;
 	cgain = _cgain;
+	momentum = _momentum;
 	for(int i = 0; i < p.size(); i++) {
 		p[i].edge_resolution = edge_resolution;
 		p[i].Rewire(p[i].root);

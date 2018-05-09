@@ -6,6 +6,7 @@
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 #include "geometry_msgs/Quaternion.h"
+#include "geometry_msgs/Point.h"
 #include "sensor_msgs/PointCloud2.h"
 
 #include <pcl/io/pcd_io.h>
@@ -85,7 +86,7 @@ void DrawObstacles(const Map& map, ros::Publisher pub) {
 	marker.id = 0;
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
-	marker.ns = "obstacles";
+	marker.ns = "obstacles_opa";
 	marker.type = visualization_msgs::Marker::CUBE;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
@@ -115,7 +116,7 @@ void DrawKeypoints(const SPT& spt, ros::Publisher pub) {
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
 	marker.ns = "keypoints";
-	marker.type = visualization_msgs::Marker::SPHERE;
+	marker.type = visualization_msgs::Marker::SPHERE_LIST;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
 	marker.color.r = 0.0;
@@ -124,15 +125,15 @@ void DrawKeypoints(const SPT& spt, ros::Publisher pub) {
 	marker.scale.x = 0.3;
 	marker.scale.y = 0.3;
 	marker.scale.z = 0.3;
+	marker.points.resize(spt.pt.size());
 
 	for(int k = 0; k < spt.pt.size(); k++) {
-		marker.id++;
-		marker.pose.position.x = spt.pt[k].x;
-		marker.pose.position.y = spt.pt[k].y;
-		marker.pose.position.z = spt.pt[k].z;
-
-		pub.publish( marker );
+		// marker.id++;
+		marker.points[k].x = spt.pt[k].x;
+		marker.points[k].y = spt.pt[k].y;
+		marker.points[k].z = spt.pt[k].z;
 	}
+	pub.publish( marker );
 }
 
 void DrawKeypointLabels(const SPT& spt, ros::Publisher pub) {
@@ -294,7 +295,7 @@ void DrawRobots(const Planner& planner, ros::Publisher pub) {
 		text.pose.position.x = planner.p[k].root.x;
 		text.pose.position.y = planner.p[k].root.y - 5;
 		text.pose.position.z = planner.p[k].root.z + 2.5;
-		text.text = std::string("P") + std::to_string(k);
+		text.text = std::string("P") + std::to_string(k+1);
 	
 		pub.publish( marker );
 		pub.publish( text );
@@ -315,7 +316,7 @@ void DrawRobots(const Planner& planner, ros::Publisher pub) {
 		text.pose.position.x = planner.e[k].root.x;
 		text.pose.position.y = planner.e[k].root.y - 5;
 		text.pose.position.z = planner.e[k].root.z + 2.5;
-		text.text = std::string("E") + std::to_string(k);
+		text.text = std::string("E") + std::to_string(k+1);
 	
 		pub.publish( marker );
 		pub.publish( text );
@@ -340,48 +341,90 @@ void DrawRobots(const Planner& planner, ros::Publisher pub) {
 		text.pose.position.x = planner.g[k].root.x;
 		text.pose.position.y = planner.g[k].root.y - 5;
 		text.pose.position.z = planner.g[k].root.z + 2.5;
-		text.text = std::string("G") + std::to_string(k);
+		text.text = std::string("T") + std::to_string(k+1);
 	
 		pub.publish( marker );
 		pub.publish( text );
 	}
 }
 
-void DrawConvergence(const std::vector<Point>& pts, ros::Publisher pub, int id) {
-	visualization_msgs::Marker marker;
+void DrawConvergence(Planner &planner, ros::Publisher pub) {
+	visualization_msgs::Marker marker, start_point, marker_square;
 
-	marker.id = id;
+	start_point.header.frame_id = "map";
+	start_point.header.stamp = ros::Time();
+	start_point.ns = "start_pt";
+	start_point.type = visualization_msgs::Marker::SPHERE_LIST;
+	start_point.action = visualization_msgs::Marker::ADD;
+	start_point.color.a = 1.0; // Don't forget to set the alpha!
+	start_point.color.r = 1.0;
+	start_point.color.g = 0.5;
+	start_point.color.b = 0.0;
+	start_point.scale.x = start_point.scale.y = start_point.scale.z = 1.0;
+	start_point.pose.orientation.w = 1;
+
 	marker.header.frame_id = "map";
 	marker.header.stamp = ros::Time();
 	marker.ns = "convergence";
-	marker.type = visualization_msgs::Marker::ARROW;
+	marker.type = visualization_msgs::Marker::LINE_STRIP;
 	marker.action = visualization_msgs::Marker::ADD;
 	marker.color.a = 1.0; // Don't forget to set the alpha!
 	marker.color.r = 0.5;
 	marker.color.g = 0.4;
 	marker.color.b = 0.2;
 	marker.scale.x = 0.2;
-	marker.scale.y = 0.7;
-	marker.scale.z = 1.0;
-	marker.pose.orientation.x = 0;
-	marker.pose.orientation.y = 0;
-	marker.pose.orientation.z = 0;
 	marker.pose.orientation.w = 1;
-	marker.points.resize(2);
 
+	marker_square = marker;
+	marker_square.type = visualization_msgs::Marker::CUBE_LIST;
+	marker_square.ns = "squares";
+	marker_square.scale.x = marker_square.scale.y = marker_square.scale.z = 0.4;
 
-	for(int i = 0; i < pts.size() - 1; i++) {
-		marker.pose.position.x = pts[i].x;
-		marker.pose.position.y = pts[i].y;
-		marker.pose.position.z = pts[i].z;
+	// Test multiple points
+	vec3 max({70, 70, 50}), min({-70, -30, 1});
+	int NDIV = 3;
 
-		marker.id++;
-		marker.points[1].x = pts[i+1].x - pts[i].x;
-		marker.points[1].y = pts[i+1].y - pts[i].y;
-		marker.points[1].z = pts[i+1].z - pts[i].z;
-		pub.publish( marker );
-	}
-	// ROS_INFO("Done with convergence");
+	start_point.points.resize(NDIV*NDIV*NDIV);
+	vec3 ds({(max.x - min.x) / NDIV, (max.y - min.y) / NDIV, (max.z - min.z) / NDIV});
+	
+	for(int i = 0; i < NDIV; i++)
+		for(int j = 0; j < NDIV; j++)
+			for(int k = 0; k < NDIV; k++) {
+
+				Point point({min.x + i * ds.x,
+						     min.y + j * ds.y,
+						     min.z + k * ds.z});
+
+				start_point.points[k+NDIV*j+NDIV*NDIV*i].x = point.x;
+				start_point.points[k+NDIV*j+NDIV*NDIV*i].y = point.y;
+				start_point.points[k+NDIV*j+NDIV*NDIV*i].z = point.z;
+
+				if (!planner.map->PointInMap(point)) {
+
+					InterceptionResult itcp;
+					SolverResult sresult;
+					if (planner.SolveInterception(point, itcp, &sresult)) {
+						marker.points.resize(sresult.interception.size());
+						for (int p = 0; p < sresult.interception.size(); p++) {
+
+							marker.points[p].x = sresult.interception[p].point.x;
+							marker.points[p].y = sresult.interception[p].point.y;
+							marker.points[p].z = sresult.interception[p].point.z;
+						}
+						marker.id++;
+						pub.publish( marker );
+
+						ros::Duration(0.05).sleep();
+						marker_square.points = marker.points;
+						marker_square.id++;
+						pub.publish( marker_square );
+					}
+				}
+				ros::spinOnce();
+			}
+
+	pub.publish(start_point);
+	ROS_INFO("Done with convergence");
 }
 
 bool getHeatMapColor(float value, float *red, float *green, float *blue)
@@ -413,11 +456,11 @@ bool getHeatMapColor(float value, float *red, float *green, float *blue)
 void BuildPointCloud(Planner& planner, ros::Publisher pub) {
 	pcl::PointCloud<pcl::PointXYZRGBA> cloud;
 	
-	Point min(-50.0, -10.0, 0.0), max(20.0, 50.0, 60.0);
-	int NDIV = 70;
+	Point min(-30.0, -10.0, 1.0), max(30.0, 50.0, 60.0);
+	int NDIV = 40;
 	vec3 ds({(max.x - min.x) / NDIV, (max.y - min.y) / NDIV, (max.z - min.z) / NDIV});
 
-	for(int i = 0; i < NDIV; i++)
+	for(int i = 0; i < NDIV; i++) {
 		for(int j = 0; j < NDIV; j++)
 			for(int k = 0; k < NDIV; k++) {
 				pcl::PointXYZRGBA point;
@@ -427,14 +470,18 @@ void BuildPointCloud(Planner& planner, ros::Publisher pub) {
 						     min.z + k * ds.z});
 
 				InterceptionResult itcp;
-				bool valid = planner.EvaluatePoint(eval_point, itcp);
+				if (!planner.EvaluatePoint(eval_point, itcp))
+					continue;
 
-				if (valid && fabs(itcp.constraint) < 1.0 && itcp.cost < 70.0) {
+
+
+				if (fabs(itcp.constraint) < 1.5 || fabs(itcp.constraint - 40) < 1.5 /*&& itcp.cost < 70.0*/) {
+
 					point.x = eval_point.x;
 					point.y = eval_point.y;
 					point.z = eval_point.z;
 
-					float cmin = 24.54, cmax = 50;
+					float cmin = 5.54, cmax = 50;
 					float cmap = boost::algorithm::clamp(1-(itcp.cost - cmin)/cmax, 0.0, 1.0);
 					vec3 color;
 					getHeatMapColor(cmap, &color.x, &color.y, &color.z);
@@ -448,6 +495,8 @@ void BuildPointCloud(Planner& planner, ros::Publisher pub) {
 				}
 
 			}
+		ROS_INFO_THROTTLE(3, "Progress: %.1f %%", 100*(i+1.0)/NDIV);
+	}
 
 	sensor_msgs::PointCloud2 cloud_msg;
 	pcl::toROSMsg<pcl::PointXYZRGBA>(cloud, cloud_msg);
@@ -526,66 +575,90 @@ void BuildProblem(Map& map, Planner& planner) {
 	OBB *mub = new OBB({-30, -15, 2.5}, {10, 10, 2.5}, rot);
 	OBB *meem = new OBB({-30, 15, 20}, {5, 5, 20}, rot);
 
-	map.AddOBB(meem);
-	map.AddOBB(chem);
-	map.AddOBB(mub);
+	// map.AddOBB(meem);
+	// map.AddOBB(chem);
+	// map.AddOBB(mub);
 	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
 
 	planner.map = &map;
-	planner.AddPursuer({-40, 0, 10}, 1.0f);
-	planner.AddPursuer({15, 40, 2}, 1.0f);
-	planner.AddPursuer({20, 25, 30}, 1.5f);
-	planner.AddEvader({-30, 30, 30}, 1.2f);
-	planner.AddGoal({10, 20, 1});
+	// planner.AddPursuer({-40, 0, 50}, 1.0f);
+	// planner.AddPursuer({15, 40, 50}, 2.0f);
+	planner.AddPursuer({20, 25, 30}, 1.0f);
+	planner.AddEvader({-50, 30, 30}, 1.6f);
+	planner.AddGoal({10, 30, 20});
 }
 
 
 int main(int argc, char **argv) {
 	std::srand(std::time(0));
+	ros::init(argc, argv, "pursuit");
+	ros::NodeHandle nh;
 
 	Map map;
 	Planner planner;
+	float cgain, ggain, edge_resolution, momentum;
+	nh.getParam("solver/cgain", cgain);
+	nh.getParam("solver/ggain", ggain);
+	nh.getParam("solver/edge_resolution", edge_resolution);
+	nh.getParam("solver/momentum", momentum);
+	planner.Reconfigure(edge_resolution, cgain, ggain, momentum);
+
+	ROS_INFO("Read parameter: %f %f %f %f", cgain, ggain, edge_resolution, momentum);
+
 	BuildProblem(map, planner);
 
+	
+	// Line line(planner.p[0].root, {-50, -50, 0});
+	// std::cout << map.PointInMap(line.end) << "\n";
 
-	ros::init(argc, argv, "pursuit");
-	ros::NodeHandle n;
+	// InterceptionResult itcp;
+	// PathResult path;
+	// std::cout << "\n" << planner.p[0].findPath({-1, -1, -1}, path) << "\n";
+	// std::cout << itcp.cost << "\n";
 
-	ros::Publisher pub_marker = n.advertise<visualization_msgs::Marker>("marker_map", 10000);
-	ros::Publisher pub_cloud = n.advertise<sensor_msgs::PointCloud2>("cloud", 10000);
+	// std::vector<InterceptionResult> results = planner.Step();
+	// SolverResult sresult;
+	// planner.SolveInterception({1, 1, 5}, result, &sresult);
+	// std::cout << results.size() << "\n";
+
+	
+	// ros::spin();
+	// return 0;
+
+
+	ros::Publisher pub_marker = nh.advertise<visualization_msgs::Marker>("marker_map", 10000);
+	ros::Publisher pub_cloud = nh.advertise<sensor_msgs::PointCloud2>("cloud", 10000);
 	// ros::Publisher pub_cloud2 = n.advertise<sensor_msgs::PointCloud2>("cloud_intercept", 1000);
 
-	// Test multiple points
-	std::vector<InterceptionResult> sols = planner.Step();
-	std::vector<Point> goodpts, badpts;
-	for (int i = 0; i < sols.size(); i++)
-	{
-		if (fabs(sols[i].constraint) < 0.5) {
-			goodpts.push_back(sols[i].point);
-		}
-		else {
-			badpts.push_back(sols[i].point);
-		}
-	}
-	ROS_INFO("%lu good and %lu bad solutions found", goodpts.size(), badpts.size());
+	ros::Duration(1).sleep();
+	ros::spinOnce();
+	BuildPointCloud(planner, pub_cloud);
+	ros::Duration(1).sleep();
 
 	DrawObstacles(map, pub_marker);
-	ros::Duration(0.5).sleep();
+	ros::Duration(1).sleep();
+
+	DrawObstacles(map, pub_marker);
+	ros::Duration(1).sleep();
+
+
 
 	DrawKeypoints(planner.p[0], pub_marker);
-	ros::Duration(0.5).sleep();
+	ros::Duration(1).sleep();
 
 	DrawRobots(planner, pub_marker);
-	ros::Duration(0.5).sleep();
+	ros::Duration(1).sleep();
 
-	DrawPoints(goodpts, "good", {1, 0.7, 0.1}, pub_marker);
-	ros::Duration(0.5).sleep();
+	// DrawPoints(goodpts, "good", {1, 0.7, 0.1}, pub_marker);
+	// ros::Duration(1).sleep();
 
-	DrawPoints(badpts, "bad", {0, 0, 0}, pub_marker);
-	ros::Duration(0.5).sleep();
+	// DrawPoints(badpts, "bad", {0, 0, 0}, pub_marker);
+	// ros::Duration(1).sleep();
 
-	BuildPointCloud(planner, pub_cloud);
 
-	ros::spin();
+	DrawConvergence(planner, pub_marker);
+	ros::Duration(1).sleep();	
+
+	ros::spinOnce();
 	return 0;
 }

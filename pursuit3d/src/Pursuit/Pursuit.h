@@ -66,10 +66,10 @@ public:
 	Map* map;
 	std::vector<SPT> p, e, g;
 	std::vector<float> pvel, evel, gvel;
-	const float DIST_MIN = 1;
-	const int MAX_ITER = 50;
-	float edge_resolution = 1.0;
-	float cgain = 0.2, ggain = 0.5;
+	const float DIST_MIN = 0.01;
+	const int MAX_ITER = 100;
+	float edge_resolution = 2.0;
+	float cgain = 10.0, ggain = 1.0, momentum = -0.3;
 
 	Planner(Map* _map);
 	Planner() {};
@@ -79,7 +79,7 @@ public:
 	bool AddGoal(const Point& point);
 	bool EvaluatePoint(const Point& point, InterceptionResult& intercept);
 	std::vector<InterceptionResult> Step();
-	void Reconfigure(float _edge_resolution, float _cgain, float _ggain);
+	void Reconfigure(float _edge_resolution, float _cgain, float _ggain, float _momentum);
 };
 
 

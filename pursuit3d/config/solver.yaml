@@ -1,0 +1,5 @@
+solver:
+  cgain: 10.0
+  ggain: 1.0
+  edge_resolution: 2.0
+  momentum: -0.3
