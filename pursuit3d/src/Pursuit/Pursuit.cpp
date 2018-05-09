@@ -231,11 +231,12 @@ bool Planner::AddGoal(const Point& point) {
 	return false;
 }
 
-bool Planner::SolveInterception(Point point, InterceptionResult& result, SolverResult* sresult) {
+bool Planner::SolveInterception(Point point, InterceptionResult& outResult, SolverResult* sresult) {
 
 	Point last_point = point;
 	int exit_flag = 1, i;
 	vec3 update;
+	InterceptionResult result;
 
 	for(i = 0; i < MAX_ITER; i++) {
 
@@ -251,6 +252,7 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, SolverR
 			update = result.constraintd * result.constraint * ggain
 					 + direction * cgain;
 			point = point - update + velocity;
+			outResult = result;
 		}
 		else {  // if point is bad
 			Ray ray(last_point, point - last_point);
@@ -276,6 +278,7 @@ bool Planner::SolveInterception(Point point, InterceptionResult& result, SolverR
 		sresult->exit_flag = exit_flag;
 	}
 
+	return true;
 	return (exit_flag > 0);
 }
 

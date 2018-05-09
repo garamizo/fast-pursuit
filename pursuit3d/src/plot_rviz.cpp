@@ -575,16 +575,16 @@ void BuildProblem(Map& map, Planner& planner) {
 	OBB *mub = new OBB({-30, -15, 2.5}, {10, 10, 2.5}, rot);
 	OBB *meem = new OBB({-30, 15, 20}, {5, 5, 20}, rot);
 
-	// map.AddOBB(meem);
-	// map.AddOBB(chem);
+	map.AddOBB(meem);
+	map.AddOBB(chem);
 	// map.AddOBB(mub);
 	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
 
 	planner.map = &map;
-	// planner.AddPursuer({-40, 0, 50}, 1.0f);
+	planner.AddPursuer({20, 0, 50}, 1.0f);
 	// planner.AddPursuer({15, 40, 50}, 2.0f);
-	planner.AddPursuer({20, 25, 30}, 1.0f);
-	planner.AddEvader({-50, 30, 30}, 1.6f);
+	planner.AddPursuer({25, 50, 10}, 1.0f);
+	planner.AddEvader({-50, 30, 30}, 1.4f);
 	planner.AddGoal({10, 30, 20});
 }
 

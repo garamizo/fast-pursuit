@@ -73,7 +73,7 @@ public:
 
 	Planner(Map* _map);
 	Planner() {};
-	bool SolveInterception(Point point, InterceptionResult& iresult, SolverResult* sresult);
+	bool SolveInterception(Point point, InterceptionResult& outResult, SolverResult* sresult);
 	bool AddPursuer(const Point& point, float vel);
 	bool AddEvader(const Point& point, float vel);
 	bool AddGoal(const Point& point);
