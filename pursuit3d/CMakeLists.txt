@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  message_generation
 )
 
 find_package(PCL 1.3 REQUIRED COMPONENTS common io)
@@ -50,11 +51,10 @@ find_package(PCL 1.3 REQUIRED COMPONENTS common io)
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  Interception.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -71,10 +71,11 @@ find_package(PCL 1.3 REQUIRED COMPONENTS common io)
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   geometry_msgs#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  geometry_msgs
+  std_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -108,7 +109,7 @@ find_package(PCL 1.3 REQUIRED COMPONENTS common io)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES pursuit3d
-#  CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs
+ CATKIN_DEPENDS geometry_msgs roscpp rospy std_msgs message_runtime
 #  DEPENDS system_lib
 )
 
@@ -122,6 +123,7 @@ include_directories(
 # include
   ${PROJECT_SOURCE_DIR}/src/GamePhysics
   ${PROJECT_SOURCE_DIR}/src/Pursuit
+  ${PROJECT_SOURCE_DIR}/src/dkm
   ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
 )

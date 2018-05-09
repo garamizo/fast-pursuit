@@ -1,6 +1,7 @@
 #include <sstream>
 #include <numeric>
 #include "string"
+#include <iomanip>
 
 #include "matrices.h"
 #include "vectors.h"
@@ -12,6 +13,7 @@
 #include <cfloat>
 #include <ctime>
 #include <boost/algorithm/clamp.hpp>
+#include "dkm.hpp"
 
 
 void BuildProblem(Map& map, Planner& planner) {
@@ -59,7 +61,7 @@ int main(int argc, char **argv) {
 
 	// Generate points
 	vec3 max({70, 70, 50}), min({-70, -30, 1});
-	int NDIV = 5;
+	int NDIV = 3;
 
 	std::vector<Point> pts;
 	std::vector<float> iterations, costs, constraints;
@@ -88,9 +90,62 @@ int main(int argc, char **argv) {
 				}
 			}
 
-	// FILE * pFile;
-	// char text[200];
-	// pFile = fopen ("result.csv", "w");
+	
+	// std::vector<std::array<float, 3>> data;
+	// for(int i = 0; i < pts.size(); i++) {
+	// 	std::array<float, 3> sample({pts[i].x, pts[i].y, pts[i].z});
+	// 	data.push_back(sample);
+	// }
+
+	// int classnum = 3;
+	// auto cluster_data = dkm::kmeans_lloyd(data, classnum);
+
+	// // get means
+	// std::vector<Point> means;
+	// std::vector<std::array<float, 3>> tuplevar = std::get<0>(cluster_data);
+	// for (int i = 0; i < classnum; i++) {
+	// 	InterceptionResult result;
+	// 	planner.EvaluatePoint({tuplevar[i][0], tuplevar[i][1],
+	// 						   tuplevar[i][2]}, result);
+	// 	means.push_back(result);
+	// }
+
+	// // get covariance
+	// std::vector<int> index;
+	// std::vector<uint32_t> tuplevar1 = std::get<1>(cluster_data);
+	// for (int i = 0; i < data.size(); i++) {
+	// 	index.push_back(int(tuplevar1[i]));
+	// 	std::cout << tuplevar1[i] << ":\t" << pts[i] <<"\n";
+	// }
+
+	return 0;
+
+	
+	// std::cout << "Point:\n" << var[0][0] << " " << var[0][1] << "\n" << var[1][0] << " " << var[1][1] << "\n";
+
+	// std::vector<uint32_t> index = std::get<1>(cluster_data);
+	// std::cout << "\nIndex:\n" << index[0] << "\n" << index[1] << "\n";	
+
+	// std::cout << "Means:" << std::endl;
+	// for (const auto& mean : std::get<0>(cluster_data)) {
+	// 	std::cout << "\t(" << mean[0] << "," << mean[1] << "," << mean[2] << ")" << std::endl;
+	// }
+
+	// std::cout << "\nCluster labels:" << std::endl;
+	// std::cout << "\tPoint:";
+	// for (const auto& point : data) {
+	// 	std::stringstream value;
+	// 	value << "(" << point[0] << "," << point[1] << ")";
+	// 	std::cout << std::setw(14) << value.str();
+	// }
+	// std::cout << std::endl;
+	// std::cout << "\tLabel:";
+	// for (const auto& label : std::get<1>(cluster_data)) {
+	// 	std::cout << std::setw(14) << label;
+	// }
+	// std::cout << std::endl;
+
+	// return 0;
 
 	// write to file
 	for (int k = 0; k < costs.size(); k++)
