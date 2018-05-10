@@ -475,7 +475,7 @@ void BuildPointCloud(Planner& planner, ros::Publisher pub) {
 
 
 
-				if (fabs(itcp.constraint) < 1.5 || fabs(itcp.constraint - 40) < 1.5 /*&& itcp.cost < 70.0*/) {
+				if (fabs(itcp.constraint) < 1.5 /*&& itcp.cost < 70.0*/) {
 
 					point.x = eval_point.x;
 					point.y = eval_point.y;
@@ -659,6 +659,6 @@ int main(int argc, char **argv) {
 	DrawConvergence(planner, pub_marker);
 	ros::Duration(1).sleep();	
 
-	ros::spinOnce();
+	ros::spin();
 	return 0;
 }

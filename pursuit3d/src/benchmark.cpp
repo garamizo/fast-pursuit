@@ -27,23 +27,29 @@ void BuildProblem(Map& map, Planner& planner) {
 	OBB *meem = new OBB({-30, 15, 20}, {5, 5, 20}, rot);
 
 	map.AddOBB(meem);
-	// map.AddOBB(chem);
-	// map.AddOBB(mub);
+	map.AddOBB(chem);
+	map.AddOBB(mub);
 	// map.Accelerate({0, 0, 50}, 50); // z origin on middle of tallest building
 
 	planner.map = &map;
-	// planner.AddPursuer({-40, 0, 50}, 1.0f);
-	// planner.AddPursuer({15, 40, 50}, 2.0f);
+	planner.AddPursuer({-40, 0, 50}, 1.0f);
+	planner.AddPursuer({15, 40, 50}, 2.0f);
 	planner.AddPursuer({20, 25, 30}, 2.0f);
 	planner.AddEvader({-50, 30, 30}, 1.0f);
 	planner.AddGoal({10, 30, 20});
+}
+
+void usage() {
+	std::cout << "Print benchmark results to screen\n\nUsage:\n\n"
+			  << "\tbenchmark CGAIN GGAIN EDGE_RES MOMENTUM\n"
+			  << "\tbenchmark 10.0 1.0 2.0 -0.3\n";
 }
 
 
 int main(int argc, char **argv) {
 
 	if (argc != 5) {
-		std::cout << "Wrong number of inputs\n";
+		usage();
 		return -1;
 	}
 
@@ -90,64 +96,8 @@ int main(int argc, char **argv) {
 				}
 			}
 
-	
-	// std::vector<std::array<float, 3>> data;
-	// for(int i = 0; i < pts.size(); i++) {
-	// 	std::array<float, 3> sample({pts[i].x, pts[i].y, pts[i].z});
-	// 	data.push_back(sample);
-	// }
-
-	// int classnum = 3;
-	// auto cluster_data = dkm::kmeans_lloyd(data, classnum);
-
-	// // get means
-	// std::vector<Point> means;
-	// std::vector<std::array<float, 3>> tuplevar = std::get<0>(cluster_data);
-	// for (int i = 0; i < classnum; i++) {
-	// 	InterceptionResult result;
-	// 	planner.EvaluatePoint({tuplevar[i][0], tuplevar[i][1],
-	// 						   tuplevar[i][2]}, result);
-	// 	means.push_back(result);
-	// }
-
-	// // get covariance
-	// std::vector<int> index;
-	// std::vector<uint32_t> tuplevar1 = std::get<1>(cluster_data);
-	// for (int i = 0; i < data.size(); i++) {
-	// 	index.push_back(int(tuplevar1[i]));
-	// 	std::cout << tuplevar1[i] << ":\t" << pts[i] <<"\n";
-	// }
-
-	return 0;
-
-	
-	// std::cout << "Point:\n" << var[0][0] << " " << var[0][1] << "\n" << var[1][0] << " " << var[1][1] << "\n";
-
-	// std::vector<uint32_t> index = std::get<1>(cluster_data);
-	// std::cout << "\nIndex:\n" << index[0] << "\n" << index[1] << "\n";	
-
-	// std::cout << "Means:" << std::endl;
-	// for (const auto& mean : std::get<0>(cluster_data)) {
-	// 	std::cout << "\t(" << mean[0] << "," << mean[1] << "," << mean[2] << ")" << std::endl;
-	// }
-
-	// std::cout << "\nCluster labels:" << std::endl;
-	// std::cout << "\tPoint:";
-	// for (const auto& point : data) {
-	// 	std::stringstream value;
-	// 	value << "(" << point[0] << "," << point[1] << ")";
-	// 	std::cout << std::setw(14) << value.str();
-	// }
-	// std::cout << std::endl;
-	// std::cout << "\tLabel:";
-	// for (const auto& label : std::get<1>(cluster_data)) {
-	// 	std::cout << std::setw(14) << label;
-	// }
-	// std::cout << std::endl;
-
-	// return 0;
-
 	// write to file
+	printf("x,y,z,iterations,cost,constraint\n");
 	for (int k = 0; k < costs.size(); k++)
 		printf("%.10f,%.10f,%.10f,%.10f,%.10f,%.10f\n", pts[k].x,
 			pts[k].y, pts[k].z, iterations[k], costs[k], constraints[k]);
