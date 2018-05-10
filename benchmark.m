@@ -313,32 +313,22 @@ contour(lims(1):0.1:lims(2), lims(3):0.1:lims(4), dist, 2.5:2.5:50, 'showtext', 
 
 set(gca,'Visible','off')
 
-%% ESP32 over TCP
-pug01 = tcpip('141.219.121.182', 80);
-pause(1)
-fopen(pug01);
-
-% Motion capture
-nh = natnet();
-nh.connect();
-
 %% test speed of pursuit
 close all
 
 th = linspace(0, 2*pi, 15)';
 
-agent_positions = [ 1.4862      -0.5248
-                    -1.4207    0.8781
-                    2.1340    0.9581
-    0.8424   -0.6421
-                    1.5         0.9
-                    1.5         -0.5
-                    3.5         -0.5 ];
-mapfile = 'lab_map';
-shape = [cos(th), sin(th)] * 0.1;
-shape = [10, -7.5; 13, 0; 10, 7.5; -10, 7.5; -10, -7.5; 10, -7.5] * 0.8e-2;
-vmax = 0.3;
-phack = [0, -30, 100, -50];  % pointer hack
+% agent_positions = [ 1.4862      -0.5248
+%                     -1.4207    0.8781
+%                     2.1340    0.9581
+%     0.8424   -0.6421
+%                     1.5         0.9
+%                     1.5         -0.5
+%                     3.5         -0.5 ];
+% mapfile = 'lab_map';
+% shape = [cos(th), sin(th)] * 0.1;
+% vmax = 0.3;
+% phack = [0, -30, 100, -50];  % pointer hack
 
 % agent_positions = [ 1.4862      -0.5248
 %                     -12.2086    1.6917
@@ -348,31 +338,29 @@ phack = [0, -30, 100, -50];  % pointer hack
 %                         8.3741   -5.1880
 %                        10.2350    3.4398 ];
 %                    
-% agent_positions = [ 1.4862      -0.5248
-%     10.2350   -1.3534
-%     -1.1560    7.5564
-%    -4.2656   -3.4688];
-%     
-% mapfile = 'maze';
-% shape = [cos(th), sin(th)] * 0.5;
-% vmax = 2;
-% phack = [0, -30, 30, 30];  % pointer hack
+agent_positions = [ 1.4862      -0.5248
+    10.2350   -1.3534
+    -1.1560    7.5564
+   -4.2656   -3.4688
+   -7.4154    5.6391
+  -12.0395   -4.5113];
+    
+mapfile = 'maze';
+shape = [cos(th), sin(th)] * 0.5;
+vmax = 2;
+phack = [0, -30, 30, 30];  % pointer hack
 
 sdata = load(fullfile('maps', mapfile));
 map = Map2D_fast('obs', sdata.output, 'lims', [sdata.x_constraints, sdata.y_constraints]);
 dt = 0.1;
 capdist = min(diff(map.lims(1:2)), diff(map.lims(3:4))) / 10;
 
-% e = Agent2D('pos', agent_positions(2,:), 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
-%     'yaw', 0.5, 'shape', shape, 'ctrl', DiffDriveController());
-e = Agent2D('pos', agent_positions(2,:), 'vmax', 0.3, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'yaw', 0.5, 'shape', shape, 'ctrl', DiffDriveController(), 'hb', pug01, 'hc', nh, ...
-    'camidx', 3);
-correct(e)
+e = Agent2D('pos', agent_positions(2,:), 'vmax', vmax, 'dt', dt, 'color', [1 0.3 0.3], ...
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 p = Agent2D('pos', agent_positions(3,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
-    'yaw', 0.5, 'shape', shape, 'ctrl', DiffDriveController());
+    'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 % p(2) = Agent2D('pos', agent_positions(4,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
-%     'yaw', 0.5, 'shape', shape, 'ctrl', DiffDriveController());
+%     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 % p(3) = Agent2D('pos', agent_positions(5,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
 %     'yaw', 0.5, 'shape', shape, 'ctrl', HolonomicController());
 % p(4) = Agent2D('pos', agent_positions(6,:), 'vmax', vmax, 'dt', dt, 'color', [0.3 0.3 1], ...
@@ -390,9 +378,9 @@ data = zeros(3000,6);
 % tt = grow_tree(map, p.pos)
 % figure, plot_tree(map, tt)
 
-record = false;
+record = true;
 if record
-    v = VideoWriter('videos/pursuit_x3', 'Motion JPEG AVI');
+    v = VideoWriter('videos/fastpursuit_x7', 'Motion JPEG AVI');
     v.Quality  = 100;
     decim = 1;
     v.FrameRate = decim/dt;
@@ -411,10 +399,11 @@ hh = plot(0, 0, '^');
 hold on
 
 set_plan(e, [   e.pos
-   -0.7464    0.9010
-   -0.8264   -0.4935
-   -2.0951   -0.5621
-   -2.1065   -0.0020], 100);
+                            8.4305    0.3383
+    3.9756   -7.3872
+   -2.7350   -7.7820
+   -2.9605   -6.8233
+    1.3816   -0.90239], 100);
 
 % close all
 clear dist data
@@ -474,13 +463,13 @@ for k = 1 : 3000
         break
     end
     
-    tmp = NaN(1, 4);
+    tmp = NaN(1, 2);
     if length(pl.tracks) == 1
         tmp(1:2) = pl.tracks(1).pos;
     elseif length(pl.tracks) >= 2
         tmp = cat(2, pl.tracks(1:2).pos);
     end
-    data(k,:) = [p(1).pos, e.pos, tmp];
+%     data(k,:) = [p(1).pos, e.pos, tmp];
     
     drawnow
     pause(dt- toc(t12))
@@ -498,83 +487,6 @@ if record
 end
 
 % figure, plot(1./diff(time(1:k-1)), '.-')
-
-%%
-% ESP32 over TCP
-pug01 = tcpip('141.219.121.182', 80);
-pause(1)
-fopen(pug01);
-
-% Motion capture
-nh = natnet();
-nh.connect();
-
-%%
-e = Agent2D('pos', agent_positions(2,:), 'vmax', 0.3, 'dt', dt, 'color', [1 0.3 0.3], ...
-    'yaw', 0.5, 'shape', shape, 'ctrl', DiffDriveController(), 'hb', pug01, 'hc', nh, ...
-    'camidx', 3);
-e.ctrl.DesiredLinearVelocity = 1;
-
-correct(e);
-
-close all, plot(map)
-
-
-set_plan(e, [ e.pos
-    -0.620621804511277  -0.527774436090226
-  -0.483460902255638  -0.344893233082707
-  -0.426310526315789   0.500932330827068
-  -0.609191729323308   0.775254135338346
-  -1.912220300751879   0.752393984962406
-  -2.095101503759398   0.592372932330827], 100)
-plot(e.ctrl)
-
-data = zeros(500, 6);
-vin = ones(500, 2) .* -[100, 100];
-
-t0 = tic;
-for k = 1 : 350
-%     fprintf(pug01, '%.1f %.1f\n', vin(k,:));
-    step(e);
-%     correct(e);
-    plot(e)
-    
-    data(k,:) = [vin(k,:), e.pos, e.yaw, toc(t0)];
-    pause(0.03)
-end
-
-%%
-w = diff(data(1:k,5)) / mean(diff(data(1:k,6)));
-v = sqrt(sum(diff(data(1:k,3:4)).^2,2)) / mean(diff(data(1:k,6)));
-figure, plot(v, '.-'), ylim([0, 5])
-
-% linear
-curve = [100, 0.69
-    50 0.48
-    -50, -0.48
-    -100, -0.7];
-
-% rotation
-curve = [-100, -6.58
-    -75, -5.33
-    -50, -2.56
-    50, 3.4
-    75, 5.1
-    100, 6.75];
-
-%%
-
-[tracked, pos0, rot0] = Agent2D.read_mocap(nh, 3)
-
-volt = e.ctrl.motorization([1, 0, 0])
-for k = 1 : 50
-    fprintf(pug01, '%.1f %.1f\n', [80 80]);
-    pause(0.1)
-end
-fprintf(pug01, '%.1f %.1f\n', [0 0])
-    
-[tracked, pos1, rot1] = Agent2D.read_mocap(nh, 3)
-
 
 %%
 p.color = [0.3 0.5 0.7];
