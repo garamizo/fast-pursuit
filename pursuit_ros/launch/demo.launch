@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+
+ 	<!-- might need to run rosparam delete /plot_rviz -->
+	<node pkg="pursuit_ros" type="plot_rviz" name="plot_rviz" output="screen" respawn="true" >
+		<rosparam command="load" file="$(find pursuit_ros)/config/example_problem.yaml" />
+	</node>
+
+	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find pursuit_ros)/rviz/pursuit.rviz"/>
+
+</launch>

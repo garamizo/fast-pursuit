@@ -1,0 +1,25 @@
+solver:
+  cgain: 0.15
+  ggain: 7.5
+  momentum: 0.3
+
+map:
+  edge_resolution: 1
+  xmin: -50
+  xmax: 50
+  ymin: -50
+  ymax: 50
+  zmin: 0
+  zmax: 50
+
+obstacle1: {x: -5,  y: 20,  z: 15,  lx: 4,  ly: 10, lz: 15,   rx: 0,  ry: 0,  rz: 10}
+obstacle2: {x: -30, y: -15, z: 2.5, lx: 10, ly: 10, lz: 2.5,  rx: 0,  ry: 0,  rz: 10}
+obstacle3: {x: -30, y: 15,  z: 20,  lx: 5,  ly: 5,  lz: 20,   rx: 0,  ry: 0,  rz: 10}
+
+pursuer1: {x: -40,  y: 0,   z: 50, speed: 15.0}
+pursuer2: {x: 15,   y: 40,  z: 50, speed: 15.0}
+pursuer3: {x: 20,   y: 25,  z: 30, speed: 15.0}
+
+goal1: {x: 0, y: 0, z: 5}
+
+evader1: {x: -30, y: 30, z: 30, speed: 10.0}

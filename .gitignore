@@ -1,3 +1,2 @@
-*.asv
-videos/*
-func_tmp.m
+*/build
+pursuit/scripts/output*

@@ -2,25 +2,25 @@
 
 ## Pursuit on 3D Space
 
-A fleet of autonomous aerial vehicles protect a target from an intruder. This intruder tries to reach the target while evading the fleet of pursuers.
+A fleet of autonomous aerial vehicles protect a target from an evading intruder.
 
-This code proposes to solve this problem using numerical solvers. To find the most likely interception point, the trajectory of the pursuers and evader are optimized jointly. From all the points in the feasible region - that the evader can reach before the pursuers (Figure 1, point cloud) - the evader should choose the point closest to the target (Figure 1, hottest regions) to increase its chance of success.
+This project proposes to solve this problem using numerical solvers. To find the most likely interception point, the trajectory of the pursuers and evader are optimized simultaneously. From all the points where capture *can* happen - where a pursuer and the evader can reach simultaneously (Figure 1, interception surface) - the evader will choose the point closest to the target (Figure 1, hottest regions) to increase its chance of success. Therefore, the pursuers should move towards that point too.
 
 ### Pursuer and evader have the same speed:
 
-![alt text](images/free_space_convergence1.png "Interception point is the hot region")
+![alt text](images/simple4.png "Interception point is the hot region")
 
 In the optimization procedure, an initial interception guess (orange spheres) are iterated to decrease the path-distance to the target, while moving towards the feasible region.
 
-### Evader is faster than pursuer:
+### Pursuer is faster than evader:
 
-![alt text](images/convergence_diff_speed.png "Drones have different analysis")
+![alt text](images/diff3.png "Drones have different speeds")
 
 When the drones have different speeds, the feasible region becomes a curved surface.
 
 ### Fleet of pursuers vs 1 evader in obstructed map:
 
-![alt text](images/convergence.png "Fleet on obstructed map")
+![alt text](images/campus_persp.png "Fleet on obstructed map")
 
 When there are multiple pursuers or obstruction, the feasible region becomes complex.
 
@@ -40,14 +40,19 @@ On a ThinkPad W530 laptop (2.7 GHz CPU, 8GB RAM).
 
 ### How to use
 
-#### Plotting results
-
+Benchmark can be run without ROS:
 ```bash
-roslaunch pursuit3d demo.launch
+cd pursuit
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+make 
+./benchmark 1.0 50
 ```
 
-### Benchmark
-
+To visualize problem, use ROS wrapper
 ```bash
-rosrun pursuit3d benchmark 10.0 1.0 2.0 -0.3
+cd catkin_ws
+catkin_make -DCMAKE_BUILD_TYPE=Release && . devel/setup.bash
+roslaunch pursuit_ros demo.launch
 ```
